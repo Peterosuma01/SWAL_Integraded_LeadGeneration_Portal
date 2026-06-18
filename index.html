@@ -535,7 +535,6 @@
             return;
         }
         
-        // Auto-detect which API to use based on email
         const apiType = getApiTypeForEmail(email);
         setApiUrl(apiType);
         
@@ -560,7 +559,6 @@
             loadDashboard();
             showMsg('Welcome, Supervisor! (' + res.type + ')', 'success');
         } else {
-            // If first API fails, try the other one
             const otherType = apiType === 'hardware' ? 'homecare' : 'hardware';
             setApiUrl(otherType);
             const res2 = await api('validateSupervisorLogin', { email, password });
@@ -602,7 +600,6 @@
             return;
         }
         
-        // Auto-detect which API to use based on email
         const apiType = getApiTypeForEmail(email);
         setApiUrl(apiType);
         
@@ -627,7 +624,6 @@
             updateUI();
             showMsg('Welcome, ' + res.name + '!', 'success');
         } else {
-            // If first API fails, try the other one
             const otherType = apiType === 'hardware' ? 'homecare' : 'hardware';
             setApiUrl(otherType);
             const res2 = await api('validateSalesRepLogin', {
@@ -867,6 +863,9 @@
         return result;
     }
 
+    // ============================================================
+    // UPDATED: LEAD FORM SUBMISSION WITH DYNAMIC API SWITCHING
+    // ============================================================
     $('btnSubmitLeadForm').addEventListener('click', async () => {
         const leadType = document.querySelector('input[name="leadType"]:checked');
         if (!leadType) {
@@ -875,6 +874,13 @@
         }
         
         const isHomecare = leadType.value === 'homecare';
+        
+        // ============================================
+        // CRITICAL: Switch API based on lead type
+        // ============================================
+        const targetApiType = isHomecare ? 'homecare' : 'hardware';
+        console.log('Submitting lead to:', targetApiType);
+        setApiUrl(targetApiType);
         
         const region = $('lfRegion').value;
         const area = $('lfArea').value.trim();
@@ -960,10 +966,12 @@
             };
         }
         
+        // Submit to the correct API
         const res = await api('submitLeadForm', payload);
         
         if (res.success) {
             showMsg(res.message, 'success');
+            // Reset form
             $('lfRegion').value = '';
             $('lfArea').value = '';
             $('lfLocation').value = '';
@@ -994,6 +1002,13 @@
             });
             $('lfAdditionalFeedbackHomecare').value = '';
             $('leadFormSection').classList.add('hidden');
+            
+            // Reset API back to user's type after submission
+            if (isSalesRepLoggedIn && $('salesRepEmail').value) {
+                const userApiType = getApiTypeForEmail($('salesRepEmail').value.trim());
+                setApiUrl(userApiType);
+                console.log('API reset to user type:', userApiType);
+            }
         } else {
             showMsg(res.message, 'error');
         }
