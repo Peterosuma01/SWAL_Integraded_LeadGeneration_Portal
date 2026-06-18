@@ -42,6 +42,8 @@
     .btn-amber{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#1f2937}
     .btn-crimson{background:linear-gradient(135deg,#be123c 0%,#9f1239 100%)}
     .btn-pink{background:linear-gradient(135deg,#ec4899 0%,#db2777 100%)}
+    .btn-hardware{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff}
+    .btn-homecare{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff}
     .message{padding:12px;border-radius:8px;margin-top:14px;display:none;font-size:13px}
     .message.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;display:block}
     .message.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;display:block}
@@ -111,6 +113,11 @@
     .type-selector label{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;cursor:pointer;padding:8px 16px;border-radius:6px;transition:all 0.2s}
     .type-selector label:has(input:checked){background:#667eea;color:#fff}
     .type-selector input[type="radio"]{width:18px;height:18px;accent-color:#667eea}
+    .type-selector-small{display:flex;gap:6px;padding:6px;background:#f8f9ff;border-radius:6px;border:1px solid #e1e8ed}
+    .type-selector-small label{display:flex;align-items:center;gap:4px;font-weight:600;font-size:12px;cursor:pointer;padding:4px 10px;border-radius:4px;transition:all 0.2s;margin:0}
+    .type-selector-small label:has(input:checked){background:#667eea;color:#fff}
+    .type-selector-small input[type="radio"]{width:14px;height:14px;accent-color:#667eea;margin:0}
+    .type-selector-small .type-badge{font-size:9px;padding:1px 6px}
     .willingness-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
     .willingness-table th,.willingness-table td{padding:8px 10px;border:1px solid #e1e8ed;text-align:center}
     .willingness-table th{background:#f0f3ff;font-weight:700;color:#333}
@@ -125,8 +132,7 @@
     .type-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:#fff}
     .type-badge.hardware{background:#3b82f6}
     .type-badge.homecare{background:#10b981}
-    .btn-hardware{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff}
-    .btn-homecare{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff}
+    .type-badge.small{font-size:8px;padding:1px 6px}
     @media(max-width:640px){
       .btn-row{flex-direction:column}.btn.small{width:100%}.container{padding:16px;margin:10px}
       .field-inline{flex-direction:column}.field-inline>input{width:100%;min-height:50px;font-size:16px}
@@ -135,6 +141,7 @@
       h1{font-size:20px}.dashboard-metrics{grid-template-columns:1fr 1fr}.metric-card{padding:12px}.metric-value{font-size:24px}
       .rep-stats{grid-template-columns:1fr 1fr}.download-row{flex-direction:column}.checkbox-group{flex-direction:column}
       .type-selector{flex-direction:column}.type-selector label{justify-content:center}
+      .type-selector-small{flex-wrap:wrap}.type-selector-small label{flex:1;justify-content:center}
       .willingness-table{font-size:11px}.willingness-table th,.willingness-table td{padding:5px 4px}
       .price-table{font-size:11px}.price-table th,.price-table td{padding:4px 3px}
     }
@@ -370,8 +377,29 @@
         </div>
       </div>
 
-      <!-- Customer Code & Details -->
-      <div class="form-group"><label>Customer Code *</label><div class="field-inline"><input type="text" id="customerCode" placeholder="Enter customer code"><button class="btn small" id="btnLoad">Load</button></div><div class="meta">Enter code and click Load to fetch data.</div></div>
+      <!-- CUSTOMER CODE LOADING WITH LEAD TYPE SELECTOR -->
+      <div class="form-group">
+        <label>Customer Code *</label>
+        <div class="field-inline">
+          <input type="text" id="customerCode" placeholder="Enter customer code">
+          <button class="btn small" id="btnLoad">Load</button>
+        </div>
+        <div class="meta" style="margin-top:4px">
+          <span style="font-weight:600;">Select lead type:</span>
+          <div class="type-selector-small" style="margin-top:4px;display:inline-flex;">
+            <label>
+              <input type="radio" name="loadLeadType" value="hardware" checked>
+              <span class="type-badge hardware small">🔩 Hardware</span>
+            </label>
+            <label>
+              <input type="radio" name="loadLeadType" value="homecare">
+              <span class="type-badge homecare small">🏠 Homecare</span>
+            </label>
+          </div>
+          <span style="margin-left:8px;font-size:11px;color:#666;">Choose where to search for the customer code</span>
+        </div>
+      </div>
+
       <div id="detailsSection" class="hidden"><div class="section-title">Customer Details</div><div style="overflow-x:auto"><table class="details-table" id="detailsTable"></table></div></div>
 
       <!-- Leads/Orders Display -->
@@ -468,6 +496,12 @@
         if (hardwareEmails.includes(email)) return 'hardware';
         if (homecareEmails.includes(email)) return 'homecare';
         return 'hardware';
+    }
+
+    // Get the selected lead type for loading
+    function getSelectedLoadType() {
+        const selected = document.querySelector('input[name="loadLeadType"]:checked');
+        return selected ? selected.value : 'hardware';
     }
 
     async function api(action, data = {}) {
@@ -1133,14 +1167,19 @@
         if (role === 'SalesRep' && !isSalesRepLoggedIn) { showMsg('Please login first', 'error'); return; }
         if (role === 'Supervisor' && !isSupervisorLoggedIn) { showMsg('Please login as supervisor first', 'error'); return; }
         
-        const type = role === 'Supervisor' ? supervisorType : salesRepApiType;
+        // Get the selected lead type for loading
+        const loadType = getSelectedLoadType();
+        console.log('Loading customer code from:', loadType);
+        
+        // Switch to the correct API based on the selected lead type
+        setApiUrl(loadType);
         
         const res = await api('getLeadStatus', {
             customerCode: code,
             role: role,
             salesRepEmail: $('salesRepEmail').value.trim(),
             salesRepPassword: $('salesRepPassword').value.trim(),
-            type: type
+            type: loadType
         });
         
         if (!res.success) {
@@ -1184,7 +1223,14 @@
         }
         
         updateUI();
-        showMsg('Lead loaded (row ' + currentLead.row + ')', 'success');
+        showMsg('Lead loaded (row ' + currentLead.row + ') from ' + loadType.toUpperCase() + ' sheet', 'success');
+        
+        // Reset API back to user's type after loading
+        if (role === 'SalesRep' && isSalesRepLoggedIn) {
+            setApiUrl(salesRepApiType);
+        } else if (role === 'Supervisor' && isSupervisorLoggedIn) {
+            setApiUrl(supervisorType);
+        }
     });
 
     function renderDetails(d) {
@@ -1260,6 +1306,9 @@
         if (!code) { showMsg('Enter customer code', 'error'); return; }
         if (!isSalesRepLoggedIn) { showMsg('Login first', 'error'); return; }
         
+        // Use the sales rep's API type for orders
+        setApiUrl(salesRepApiType);
+        
         const res = await api('getAvailableOrders', {
             customerCode: code,
             salesRepEmail: $('salesRepEmail').value.trim(),
@@ -1319,6 +1368,9 @@
             return;
         }
         
+        // Use the sales rep's API type for orders
+        setApiUrl(salesRepApiType);
+        
         const res = await api('submitOrder', {
             customerCode: code,
             orderNumber: num,
@@ -1352,13 +1404,17 @@
             qv = 'Other: ' + ct;
         }
         
+        // Use the lead's type for the update
+        const leadType = currentLead.type || supervisorType;
+        setApiUrl(leadType);
+        
         const res = await api('updateQualificationBySupervisor', {
             customerCode: $('customerCode').value.trim(),
             qualificationValue: qv,
             approvalAction: action,
             salesRepEmail: $('assignEmail').value.trim(),
             password: $('supervisorPasswordField').value.trim(),
-            type: supervisorType
+            type: leadType
         });
         
         if (res.success) {
@@ -1388,13 +1444,16 @@
                 qv = 'Other: ' + ct;
             }
             
+            const leadType = currentLead.type || supervisorType;
+            setApiUrl(leadType);
+            
             const res = await api('updateQualificationBySupervisor', {
                 customerCode: code,
                 qualificationValue: qv,
                 approvalAction: '',
                 salesRepEmail: $('assignEmail').value.trim(),
                 password: $('supervisorPasswordField').value.trim(),
-                type: supervisorType
+                type: leadType
             });
             
             if (res.success) {
@@ -1406,6 +1465,10 @@
             }
         } else if (role === 'SalesRep') {
             let updates = [], errors = [];
+            
+            // Use the lead's type for updates
+            const leadType = currentLead.type || salesRepApiType;
+            setApiUrl(leadType);
             
             if ($('presentation').value) {
                 let pv = $('presentation').value;
@@ -1420,7 +1483,7 @@
                         presentationValue: pv,
                         salesRepEmail: $('salesRepEmail').value.trim(),
                         password: $('salesRepPassword').value.trim(),
-                        type: currentLead.type || salesRepApiType
+                        type: leadType
                     });
                     if (res.success) updates.push('Presentation');
                     else errors.push(res.message);
@@ -1433,7 +1496,7 @@
                     kycValue: $('kycOnboarding').value,
                     salesRepEmail: $('salesRepEmail').value.trim(),
                     password: $('salesRepPassword').value.trim(),
-                    type: currentLead.type || salesRepApiType
+                    type: leadType
                 });
                 if (res.success) updates.push('KYC Onboarding');
                 else errors.push(res.message);
@@ -1447,6 +1510,9 @@
             } else {
                 showMsg('No changes', 'info');
             }
+            
+            // Reset API back to user's type
+            setApiUrl(salesRepApiType);
         }
     });
 
@@ -1566,7 +1632,6 @@
         currentRepData.apiType = repApiType;
         currentRepData.email = currentRepData.email || $('salesRepSelect').value;
         
-        // Update stats
         $('repConvertedCount').textContent = res.data.convertedCount || 0;
         $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
         $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
@@ -1628,7 +1693,6 @@
         currentRepData.apiType = repApiType;
         currentRepData.email = currentRepData.email || $('salesRepSelect').value;
         
-        // Update stats
         $('repConvertedCount').textContent = res.data.convertedCount || 0;
         $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
         $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
@@ -1686,7 +1750,6 @@
         currentRepData.apiType = repApiType;
         currentRepData.email = currentRepData.email || $('salesRepSelect').value;
         
-        // Update stats
         $('repConvertedCount').textContent = res.data.convertedCount || 0;
         $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
         $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
