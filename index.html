@@ -364,19 +364,19 @@
   </div>
 
   <div id="passwordModal" class="hidden"><div class="modal-overlay"><div class="modal"><h3>Supervisor Password</h3><input type="password" id="supervisorPasswordModal" placeholder="Enter password" style="width:100%;padding:10px;border:1px solid #e1e8ed;border-radius:6px"><div id="passwordHint" class="hint"></div><div class="modal-actions"><button class="btn small btn-gray" id="btnCancelPassword">Cancel</button><button class="btn small" id="btnConfirmPassword">Submit</button></div></div></div></div>
-
-  <script>
+<script>
     // ============================================================
     // INTEGRATED FRONTEND - Hardware & Homecare
     // ============================================================
     // ⚠️ IMPORTANT: Replace these URLs with your Apps Script deployment URLs
     const API_URLS = {
-        hardware: 'https://script.google.com/macros/s/AKfycbzRN4D2z30rNykddm98V4OXxCuOR0AKqK1eE5mdbuOdlwmR2nyBpG5JGDk2CBsj1FutRQ/exec',
-        homecare: 'https://script.google.com/macros/s/AKfycbzRN4D2z30rNykddm98V4OXxCuOR0AKqK1eE5mdbuOdlwmR2nyBpG5JGDk2CBsj1FutRQ/exec'
+        hardware: 'https://script.google.com/macros/s/YOUR_HARDWARE_DEPLOYMENT_ID/exec',
+        homecare: 'https://script.google.com/macros/s/YOUR_HOMECARE_DEPLOYMENT_ID/exec'
     };
     
     // Current active API URL (defaults to hardware)
     let currentApiUrl = API_URLS.hardware;
+    
     let currentLead = null;
     let currentOrderStatus = null;
     let salesRepName = '';
@@ -391,734 +391,822 @@
     const $ = id => document.getElementById(id);
 
     // ========== UTILITY FUNCTIONS ==========
+    function setApiUrl(type) {
+        if (API_URLS[type]) {
+            currentApiUrl = API_URLS[type];
+            console.log('API switched to:', type, currentApiUrl);
+        }
+    }
+
+    function getApiTypeForEmail(email) {
+        const hardwareEmails = [
+            'hardware1.swal@gmail.com',
+            'hardware2.swal@gmail.com',
+            'hardware3.swal@gmail.com',
+            'hardware4.swal@gmail.com',
+            'hardware5.swal@gmail.com',
+            'hardware6.swal@gmail.com',
+            'eastern.swal@gmail.com'
+        ];
+        
+        const homecareEmails = [
+            'generaltrade.swal@gmail.com',
+            'generaltrade1.swal@gmail.com',
+            'mountain.swal@gmail.com'
+        ];
+        
+        if (hardwareEmails.includes(email)) return 'hardware';
+        if (homecareEmails.includes(email)) return 'homecare';
+        return 'hardware'; // Default
+    }
+
     async function api(action, data = {}) {
-      $('loading').classList.add('show');
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action, ...data })
-        });
-        return await res.json();
-      } catch (e) {
-        return { success: false, message: 'Network error: ' + e.message };
-      } finally {
-        $('loading').classList.remove('show');
-      }
+        $('loading').classList.add('show');
+        try {
+            const res = await fetch(currentApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action, ...data })
+            });
+            return await res.json();
+        } catch (e) {
+            console.error('API Error:', e);
+            return { success: false, message: 'Network error: ' + e.message };
+        } finally {
+            $('loading').classList.remove('show');
+        }
     }
 
     function showMsg(text, type = 'info') {
-      const msg = $('message');
-      msg.className = 'message ' + type;
-      msg.textContent = text;
-      msg.style.display = 'block';
-      setTimeout(() => msg.style.display = 'none', 6000);
+        const msg = $('message');
+        msg.className = 'message ' + type;
+        msg.textContent = text;
+        msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 6000);
     }
 
     // ========== DOWNLOAD FUNCTIONS ==========
     function downloadExcel(data, headers, filename) {
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-      ws['!cols'] = headers.map((h, i) => {
-        const m = Math.max(h.length, ...data.map(r => String(r[i] || '').length));
-        return { wch: Math.min(m + 2, 30) };
-      });
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Data');
-      XLSX.writeFile(wb, filename + '.xlsx');
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+        ws['!cols'] = headers.map((h, i) => {
+            const m = Math.max(h.length, ...data.map(r => String(r[i] || '').length));
+            return { wch: Math.min(m + 2, 30) };
+        });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Data');
+        XLSX.writeFile(wb, filename + '.xlsx');
     }
 
     function downloadPdf(data, headers, filename, title) {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: headers.length > 6 ? 'landscape' : 'portrait' });
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      doc.text(title, 14, 18);
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
-      doc.text('Steelwool Africa LTD - ' + new Date().toLocaleDateString(), 14, 25);
-      doc.autoTable({
-        head: [headers],
-        body: data,
-        startY: 30,
-        styles: { fontSize: 7, cellPadding: 2 },
-        headStyles: { fillColor: [102, 126, 234], textColor: 255, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245, 247, 255] },
-        margin: { top: 30 }
-      });
-      doc.save(filename + '.pdf');
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: headers.length > 6 ? 'landscape' : 'portrait' });
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text(title, 14, 18);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('Steelwool Africa LTD - ' + new Date().toLocaleDateString(), 14, 25);
+        doc.autoTable({
+            head: [headers],
+            body: data,
+            startY: 30,
+            styles: { fontSize: 7, cellPadding: 2 },
+            headStyles: { fillColor: [102, 126, 234], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245, 247, 255] },
+            margin: { top: 30 }
+        });
+        doc.save(filename + '.pdf');
     }
 
     // ========== UI UPDATE FUNCTIONS ==========
     function updateUI() {
-      const role = $('roleSelect').value;
-      
-      $('supervisorAuth').classList.toggle('hidden', role !== 'Supervisor');
-      $('salesRepAuth').classList.toggle('hidden', role !== 'SalesRep');
-      
-      if (role === 'Supervisor' && isSupervisorLoggedIn) {
-        $('supervisorDashboard').classList.remove('hidden');
-        $('salesRepDetailsSection').classList.remove('hidden');
-      } else {
-        $('supervisorDashboard').classList.add('hidden');
-        $('salesRepDetailsSection').classList.add('hidden');
-      }
-      
-      if ((role === 'SalesRep' && isSalesRepLoggedIn) || (role === 'Supervisor' && isSupervisorLoggedIn)) {
-        $('actionButtons').classList.remove('hidden');
-      } else {
-        $('actionButtons').classList.add('hidden');
-      }
-      
-      $('btnViewLeads').classList.toggle('hidden', role !== 'Supervisor');
-      $('btnViewOrders').classList.toggle('hidden', role !== 'Supervisor');
-      $('btnViewQualified').classList.toggle('hidden', role !== 'SalesRep');
-      $('btnPlaceOrder').classList.toggle('hidden', role !== 'SalesRep');
-      $('btnGenerateLead').classList.toggle('hidden', role !== 'SalesRep');
-      
-      $('approvalButtons').classList.toggle('hidden', role !== 'Supervisor' || !isSupervisorLoggedIn);
-      $('assignSalesRep').classList.toggle('hidden', role !== 'Supervisor' || !isSupervisorLoggedIn);
-      
-      $('qualification').disabled = role !== 'Supervisor' || !isSupervisorLoggedIn;
-      $('presentation').disabled = role !== 'SalesRep' || !currentLead || currentLead.approval !== 'Approved' || !isSalesRepLoggedIn;
-      $('kycOnboarding').disabled = role !== 'SalesRep' || !currentLead || currentLead.approval !== 'Approved' || !isSalesRepLoggedIn;
-      
-      if (role === 'SalesRep') {
-        $('customerCode').disabled = !isSalesRepLoggedIn;
-        $('btnLoad').disabled = !isSalesRepLoggedIn;
-      } else {
-        $('customerCode').disabled = false;
-        $('btnLoad').disabled = false;
-      }
-      
-      $('qualificationOtherBox').classList.toggle('hidden', $('qualification').value !== 'Other');
-      $('presentationOtherBox').classList.toggle('hidden', $('presentation').value !== 'Other');
+        const role = $('roleSelect').value;
+        
+        $('supervisorAuth').classList.toggle('hidden', role !== 'Supervisor');
+        $('salesRepAuth').classList.toggle('hidden', role !== 'SalesRep');
+        
+        if (role === 'Supervisor' && isSupervisorLoggedIn) {
+            $('supervisorDashboard').classList.remove('hidden');
+            $('salesRepDetailsSection').classList.remove('hidden');
+        } else {
+            $('supervisorDashboard').classList.add('hidden');
+            $('salesRepDetailsSection').classList.add('hidden');
+        }
+        
+        if ((role === 'SalesRep' && isSalesRepLoggedIn) || (role === 'Supervisor' && isSupervisorLoggedIn)) {
+            $('actionButtons').classList.remove('hidden');
+        } else {
+            $('actionButtons').classList.add('hidden');
+        }
+        
+        $('btnViewLeads').classList.toggle('hidden', role !== 'Supervisor');
+        $('btnViewOrders').classList.toggle('hidden', role !== 'Supervisor');
+        $('btnViewQualified').classList.toggle('hidden', role !== 'SalesRep');
+        $('btnPlaceOrder').classList.toggle('hidden', role !== 'SalesRep');
+        $('btnGenerateLead').classList.toggle('hidden', role !== 'SalesRep');
+        
+        $('approvalButtons').classList.toggle('hidden', role !== 'Supervisor' || !isSupervisorLoggedIn);
+        $('assignSalesRep').classList.toggle('hidden', role !== 'Supervisor' || !isSupervisorLoggedIn);
+        
+        $('qualification').disabled = role !== 'Supervisor' || !isSupervisorLoggedIn;
+        $('presentation').disabled = role !== 'SalesRep' || !currentLead || currentLead.approval !== 'Approved' || !isSalesRepLoggedIn;
+        $('kycOnboarding').disabled = role !== 'SalesRep' || !currentLead || currentLead.approval !== 'Approved' || !isSalesRepLoggedIn;
+        
+        if (role === 'SalesRep') {
+            $('customerCode').disabled = !isSalesRepLoggedIn;
+            $('btnLoad').disabled = !isSalesRepLoggedIn;
+        } else {
+            $('customerCode').disabled = false;
+            $('btnLoad').disabled = false;
+        }
+        
+        $('qualificationOtherBox').classList.toggle('hidden', $('qualification').value !== 'Other');
+        $('presentationOtherBox').classList.toggle('hidden', $('presentation').value !== 'Other');
     }
 
     // ========== SUPERVISOR LOGIN ==========
     $('btnSupervisorLogin').addEventListener('click', async () => {
-      const email = $('supervisorEmail').value.trim();
-      const password = $('supervisorPasswordField').value.trim();
-      
-      if (!email || !password) {
-        $('supervisorLoginMsg').textContent = 'Please enter email and password';
-        $('supervisorLoginMsg').style.display = 'block';
-        return;
-      }
-      
-      const res = await api('validateSupervisorLogin', { email, password });
-      
-      if (res.success) {
-        isSupervisorLoggedIn = true;
-        supervisorType = res.type;
-        supervisorEmail = res.email;
-        $('supervisorLoginMsg').style.display = 'none';
-        $('btnSupervisorLogin').textContent = 'Logged In ✓';
-        $('btnSupervisorLogin').disabled = true;
-        $('btnSupervisorLogin').style.background = '#22c55e';
-        $('supervisorEmail').disabled = true;
-        $('supervisorPasswordField').disabled = true;
+        const email = $('supervisorEmail').value.trim();
+        const password = $('supervisorPasswordField').value.trim();
         
-        $('loginBadge').classList.add('show');
-        $('loginBadgeText').textContent = 'Supervisor: ' + res.type.toUpperCase();
-        $('dashboardTypeLabel').textContent = res.type.charAt(0).toUpperCase() + res.type.slice(1);
+        if (!email || !password) {
+            $('supervisorLoginMsg').textContent = 'Please enter email and password';
+            $('supervisorLoginMsg').style.display = 'block';
+            return;
+        }
         
-        updateUI();
-        loadDashboard();
-        showMsg('Welcome, Supervisor! (' + res.type + ')', 'success');
-      } else {
-        $('supervisorLoginMsg').textContent = res.message;
-        $('supervisorLoginMsg').style.display = 'block';
-        $('supervisorLoginMsg').style.color = '#dc2626';
-      }
+        // Auto-detect which API to use based on email
+        const apiType = getApiTypeForEmail(email);
+        setApiUrl(apiType);
+        
+        const res = await api('validateSupervisorLogin', { email, password });
+        
+        if (res.success) {
+            isSupervisorLoggedIn = true;
+            supervisorType = res.type;
+            supervisorEmail = res.email;
+            $('supervisorLoginMsg').style.display = 'none';
+            $('btnSupervisorLogin').textContent = 'Logged In ✓';
+            $('btnSupervisorLogin').disabled = true;
+            $('btnSupervisorLogin').style.background = '#22c55e';
+            $('supervisorEmail').disabled = true;
+            $('supervisorPasswordField').disabled = true;
+            
+            $('loginBadge').classList.add('show');
+            $('loginBadgeText').textContent = 'Supervisor: ' + res.type.toUpperCase() + ' (' + apiType + ')';
+            $('dashboardTypeLabel').textContent = res.type.charAt(0).toUpperCase() + res.type.slice(1);
+            
+            updateUI();
+            loadDashboard();
+            showMsg('Welcome, Supervisor! (' + res.type + ')', 'success');
+        } else {
+            // If first API fails, try the other one
+            const otherType = apiType === 'hardware' ? 'homecare' : 'hardware';
+            setApiUrl(otherType);
+            const res2 = await api('validateSupervisorLogin', { email, password });
+            
+            if (res2.success) {
+                isSupervisorLoggedIn = true;
+                supervisorType = res2.type;
+                supervisorEmail = res2.email;
+                $('supervisorLoginMsg').style.display = 'none';
+                $('btnSupervisorLogin').textContent = 'Logged In ✓';
+                $('btnSupervisorLogin').disabled = true;
+                $('btnSupervisorLogin').style.background = '#22c55e';
+                $('supervisorEmail').disabled = true;
+                $('supervisorPasswordField').disabled = true;
+                
+                $('loginBadge').classList.add('show');
+                $('loginBadgeText').textContent = 'Supervisor: ' + res2.type.toUpperCase() + ' (' + otherType + ')';
+                $('dashboardTypeLabel').textContent = res2.type.charAt(0).toUpperCase() + res2.type.slice(1);
+                
+                updateUI();
+                loadDashboard();
+                showMsg('Welcome, Supervisor! (' + res2.type + ')', 'success');
+            } else {
+                $('supervisorLoginMsg').textContent = res.message || res2.message || 'Invalid credentials';
+                $('supervisorLoginMsg').style.display = 'block';
+                $('supervisorLoginMsg').style.color = '#dc2626';
+            }
+        }
     });
 
     // ========== SALES REP LOGIN ==========
     $('btnSalesRepLogin').addEventListener('click', async () => {
-      const email = $('salesRepEmail').value.trim();
-      const password = $('salesRepPassword').value.trim();
-      
-      if (!email || !password) {
-        $('salesRepLoginMsg').textContent = 'Please enter email and password';
-        $('salesRepLoginMsg').style.display = 'block';
-        return;
-      }
-      
-      const res = await api('validateSalesRepLogin', {
-        salesRepEmail: email,
-        salesRepPassword: password
-      });
-      
-      if (res.success) {
-        isSalesRepLoggedIn = true;
-        salesRepName = res.name;
-        $('salesRepLoginMsg').style.display = 'none';
-        $('btnSalesRepLogin').textContent = 'Logged In ✓';
-        $('btnSalesRepLogin').disabled = true;
-        $('btnSalesRepLogin').style.background = '#22c55e';
-        $('salesRepEmail').disabled = true;
-        $('salesRepPassword').disabled = true;
+        const email = $('salesRepEmail').value.trim();
+        const password = $('salesRepPassword').value.trim();
         
-        $('loginBadge').classList.add('show');
-        $('loginBadgeText').textContent = 'Sales Rep: ' + res.name + ' (' + res.type + ')';
+        if (!email || !password) {
+            $('salesRepLoginMsg').textContent = 'Please enter email and password';
+            $('salesRepLoginMsg').style.display = 'block';
+            return;
+        }
         
-        updateUI();
-        showMsg('Welcome, ' + res.name + '!', 'success');
-      } else {
-        $('salesRepLoginMsg').textContent = res.message;
-        $('salesRepLoginMsg').style.display = 'block';
-        $('salesRepLoginMsg').style.color = '#dc2626';
-      }
+        // Auto-detect which API to use based on email
+        const apiType = getApiTypeForEmail(email);
+        setApiUrl(apiType);
+        
+        const res = await api('validateSalesRepLogin', {
+            salesRepEmail: email,
+            salesRepPassword: password
+        });
+        
+        if (res.success) {
+            isSalesRepLoggedIn = true;
+            salesRepName = res.name;
+            $('salesRepLoginMsg').style.display = 'none';
+            $('btnSalesRepLogin').textContent = 'Logged In ✓';
+            $('btnSalesRepLogin').disabled = true;
+            $('btnSalesRepLogin').style.background = '#22c55e';
+            $('salesRepEmail').disabled = true;
+            $('salesRepPassword').disabled = true;
+            
+            $('loginBadge').classList.add('show');
+            $('loginBadgeText').textContent = 'Sales Rep: ' + res.name + ' (' + apiType + ')';
+            
+            updateUI();
+            showMsg('Welcome, ' + res.name + '!', 'success');
+        } else {
+            // If first API fails, try the other one
+            const otherType = apiType === 'hardware' ? 'homecare' : 'hardware';
+            setApiUrl(otherType);
+            const res2 = await api('validateSalesRepLogin', {
+                salesRepEmail: email,
+                salesRepPassword: password
+            });
+            
+            if (res2.success) {
+                isSalesRepLoggedIn = true;
+                salesRepName = res2.name;
+                $('salesRepLoginMsg').style.display = 'none';
+                $('btnSalesRepLogin').textContent = 'Logged In ✓';
+                $('btnSalesRepLogin').disabled = true;
+                $('btnSalesRepLogin').style.background = '#22c55e';
+                $('salesRepEmail').disabled = true;
+                $('salesRepPassword').disabled = true;
+                
+                $('loginBadge').classList.add('show');
+                $('loginBadgeText').textContent = 'Sales Rep: ' + res2.name + ' (' + otherType + ')';
+                
+                updateUI();
+                showMsg('Welcome, ' + res2.name + '!', 'success');
+            } else {
+                $('salesRepLoginMsg').textContent = res.message || res2.message || 'Invalid credentials';
+                $('salesRepLoginMsg').style.display = 'block';
+                $('salesRepLoginMsg').style.color = '#dc2626';
+            }
+        }
     });
 
     // ========== DASHBOARD ==========
     async function loadDashboard() {
-      if (!isSupervisorLoggedIn) return;
-      
-      const res = await api('getSupervisorDashboard', {
-        email: supervisorEmail,
-        password: $('supervisorPasswordField').value.trim()
-      });
-      
-      if (res.success) {
-        dashboardData = res.data;
-        $('metricTotalLeads').textContent = res.data.totalLeads;
-        $('metricQualifiedLeads').textContent = res.data.qualifiedLeads;
-        $('metricQualificationRate').textContent = res.data.qualificationRate + '%';
-        $('metricApprovedLeads').textContent = res.data.approvedLeadsCount;
-        $('metricConvertedLeads').textContent = res.data.convertedLeads;
-        $('metricConversionRate').textContent = res.data.conversionRate + '%';
-        $('metricTerminatedLeads').textContent = res.data.terminatedLeadsCount || 0;
-        $('supervisorDashboard').classList.remove('hidden');
+        if (!isSupervisorLoggedIn) return;
         
-        const pendingRes = await api('getPendingLeads', {
-          email: supervisorEmail,
-          password: $('supervisorPasswordField').value.trim()
+        const res = await api('getSupervisorDashboard', {
+            email: supervisorEmail,
+            password: $('supervisorPasswordField').value.trim()
         });
-        if (pendingRes.success) {
-          $('metricPendingLeads').textContent = pendingRes.data.length;
+        
+        if (res.success) {
+            dashboardData = res.data;
+            $('metricTotalLeads').textContent = res.data.totalLeads;
+            $('metricQualifiedLeads').textContent = res.data.qualifiedLeads;
+            $('metricQualificationRate').textContent = res.data.qualificationRate + '%';
+            $('metricApprovedLeads').textContent = res.data.approvedLeadsCount;
+            $('metricConvertedLeads').textContent = res.data.convertedLeads;
+            $('metricConversionRate').textContent = res.data.conversionRate + '%';
+            $('metricTerminatedLeads').textContent = res.data.terminatedLeadsCount || 0;
+            $('supervisorDashboard').classList.remove('hidden');
+            
+            const pendingRes = await api('getPendingLeads', {
+                email: supervisorEmail,
+                password: $('supervisorPasswordField').value.trim()
+            });
+            if (pendingRes.success) {
+                $('metricPendingLeads').textContent = pendingRes.data.length;
+            }
+        } else {
+            showMsg('Dashboard error: ' + res.message, 'error');
         }
-      } else {
-        showMsg('Dashboard error: ' + res.message, 'error');
-      }
     }
-
-    $('btnRefreshDashboard').addEventListener('click', () => {
-      loadDashboard();
-      showMsg('Dashboard refreshed', 'success');
-    });
 
     // ========== VIEW LEADS FUNCTIONS ==========
     async function loadLeads(action, title, showTerminatedDownload = false) {
-      const res = await api(action, {
-        email: supervisorEmail,
-        password: $('supervisorPasswordField').value.trim()
-      });
-      
-      if (!res.success) {
-        showMsg(res.message, 'error');
-        return;
-      }
-      
-      if (res.data.length === 0) {
-        showMsg('No leads found', 'info');
-        return;
-      }
-      
-      currentTerminatedLeads = res.data;
-      renderLeadsTable(res.data, title, showTerminatedDownload);
+        const res = await api(action, {
+            email: supervisorEmail,
+            password: $('supervisorPasswordField').value.trim()
+        });
+        
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            return;
+        }
+        
+        if (res.data.length === 0) {
+            showMsg('No leads found', 'info');
+            return;
+        }
+        
+        currentTerminatedLeads = res.data;
+        renderLeadsTable(res.data, title, showTerminatedDownload);
     }
 
+    $('btnRefreshDashboard').addEventListener('click', () => {
+        loadDashboard();
+        showMsg('Dashboard refreshed', 'success');
+    });
+
     $('btnViewPendingLeads').addEventListener('click', () => {
-      loadLeads('getPendingLeads', '⏳ Pending Approval', false);
+        loadLeads('getPendingLeads', '⏳ Pending Approval', false);
     });
 
     $('btnViewApprovedLeads').addEventListener('click', () => {
-      if (!dashboardData || !dashboardData.approvedLeads) {
-        showMsg('No data. Refresh first.', 'error');
-        return;
-      }
-      if (dashboardData.approvedLeads.length === 0) {
-        showMsg('No approved leads (terminated leads are excluded)', 'info');
-        return;
-      }
-      renderLeadsTable(dashboardData.approvedLeads, '✅ Approved Leads (' + dashboardData.approvedLeadsCount + ')', false);
+        if (!dashboardData || !dashboardData.approvedLeads) {
+            showMsg('No data. Refresh first.', 'error');
+            return;
+        }
+        if (dashboardData.approvedLeads.length === 0) {
+            showMsg('No approved leads (terminated leads are excluded)', 'info');
+            return;
+        }
+        renderLeadsTable(dashboardData.approvedLeads, '✅ Approved Leads (' + dashboardData.approvedLeadsCount + ')', false);
     });
 
     $('btnViewTerminatedLeads').addEventListener('click', () => {
-      loadLeads('getTerminatedLeads', '🚫 Terminated Leads', true);
+        loadLeads('getTerminatedLeads', '🚫 Terminated Leads', true);
     });
 
     $('btnViewAllLeads').addEventListener('click', async () => {
-      const res = await api('getAllGeneratedLeads', { type: supervisorType });
-      if (!res.success) {
-        showMsg(res.message, 'error');
-        return;
-      }
-      if (res.data.length === 0) {
-        showMsg('No leads found', 'info');
-        return;
-      }
-      renderLeadsTable(res.data, '📋 All Generated Leads', false);
+        const res = await api('getAllGeneratedLeads', { type: supervisorType });
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            return;
+        }
+        if (res.data.length === 0) {
+            showMsg('No leads found', 'info');
+            return;
+        }
+        renderLeadsTable(res.data, '📋 All Generated Leads', false);
     });
 
     $('btnViewOrdersSummary').addEventListener('click', async () => {
-      const res = await api('getOrdersSummary', { type: supervisorType });
-      if (!res.success) {
-        showMsg(res.message, 'error');
-        return;
-      }
-      if (res.data.length === 0) {
-        showMsg('No orders yet', 'info');
-        return;
-      }
-      renderOrdersTable(res.data);
+        const res = await api('getOrdersSummary', { type: supervisorType });
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            return;
+        }
+        if (res.data.length === 0) {
+            showMsg('No orders yet', 'info');
+            return;
+        }
+        renderOrdersTable(res.data);
     });
 
     // ========== RENDER LEADS TABLE ==========
     function renderLeadsTable(leads, title, showTerminatedDownload) {
-      $('leadsTitle').textContent = title;
-      
-      if (showTerminatedDownload && $('roleSelect').value === 'Supervisor') {
-        $('btnDownloadTerminatedExcel').classList.remove('hidden');
-      } else {
-        $('btnDownloadTerminatedExcel').classList.add('hidden');
-      }
-      
-      const isHomecare = leads.length > 0 && leads[0].type === 'homecare';
-      
-      let headers, rowMapper;
-      
-      if (isHomecare) {
-        headers = ['Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Code'];
-        rowMapper = l => [l.region || '', l.area || '', l.location || '', l.storeName || '', l.contactPerson || '', l.mobileNumber || '', l.sellingSwool || '', l.sokoniSource || '', l.otherBrands || '', l.monthlyVolume || '', l.comments || '', l.customerCode || ''];
-      } else {
-        headers = ['Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Feedback', 'Code'];
-        rowMapper = l => [l.region || '', l.area || '', l.location || '', l.storeName || '', l.contactPerson || '', l.mobileNumber || '', l.outletCategory || '', l.brandsStocked || '', l.purchaseFrequency || '', l.mainSupplier || '', l.distributorType || '', l.weldplusAwareness || '', l.additionalFeedback || '', l.customerCode || ''];
-      }
-      
-      $('leadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + leads.map(l => '<tr>' + rowMapper(l).map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>').join('') + '</tbody>';
-      
-      $('leadsSection').classList.remove('hidden');
-      $('detailsSection').classList.add('hidden');
-      $('ordersSection').classList.add('hidden');
-      $('leadFormSection').classList.add('hidden');
+        $('leadsTitle').textContent = title;
+        
+        if (showTerminatedDownload && $('roleSelect').value === 'Supervisor') {
+            $('btnDownloadTerminatedExcel').classList.remove('hidden');
+        } else {
+            $('btnDownloadTerminatedExcel').classList.add('hidden');
+        }
+        
+        const isHomecare = leads.length > 0 && leads[0].type === 'homecare';
+        
+        let headers, rowMapper;
+        
+        if (isHomecare) {
+            headers = ['Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Code'];
+            rowMapper = l => [l.region || '', l.area || '', l.location || '', l.storeName || '', l.contactPerson || '', l.mobileNumber || '', l.sellingSwool || '', l.sokoniSource || '', l.otherBrands || '', l.monthlyVolume || '', l.comments || '', l.customerCode || ''];
+        } else {
+            headers = ['Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Feedback', 'Code'];
+            rowMapper = l => [l.region || '', l.area || '', l.location || '', l.storeName || '', l.contactPerson || '', l.mobileNumber || '', l.outletCategory || '', l.brandsStocked || '', l.purchaseFrequency || '', l.mainSupplier || '', l.distributorType || '', l.weldplusAwareness || '', l.additionalFeedback || '', l.customerCode || ''];
+        }
+        
+        $('leadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + leads.map(l => '<tr>' + rowMapper(l).map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>').join('') + '</tbody>';
+        
+        $('leadsSection').classList.remove('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
     }
 
     function renderOrdersTable(orders) {
-      $('leadsTitle').textContent = '📦 Orders Summary';
-      $('btnDownloadTerminatedExcel').classList.add('hidden');
-      $('leadsTable').innerHTML = '<thead><tr><th>Customer Code</th><th>Orders</th><th>Total Kgs</th><th>Avg Kgs</th></tr></thead><tbody>' + orders.map(o => '<tr><td>' + o.customerCode + '</td><td>' + o.numberOfOrders + '</td><td>' + o.totalQuantity.toFixed(2) + '</td><td>' + o.averageQuantity.toFixed(2) + '</td></tr>').join('') + '</tbody>';
-      $('leadsSection').classList.remove('hidden');
-      $('detailsSection').classList.add('hidden');
-      $('ordersSection').classList.add('hidden');
-      $('leadFormSection').classList.add('hidden');
+        $('leadsTitle').textContent = '📦 Orders Summary';
+        $('btnDownloadTerminatedExcel').classList.add('hidden');
+        $('leadsTable').innerHTML = '<thead><tr><th>Customer Code</th><th>Orders</th><th>Total Kgs</th><th>Avg Kgs</th></tr></thead><tbody>' + orders.map(o => '<tr><td>' + o.customerCode + '</td><td>' + o.numberOfOrders + '</td><td>' + o.totalQuantity.toFixed(2) + '</td><td>' + o.averageQuantity.toFixed(2) + '</td></tr>').join('') + '</tbody>';
+        $('leadsSection').classList.remove('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
     }
 
     $('btnCloseLeads').addEventListener('click', () => {
-      $('leadsSection').classList.add('hidden');
-      $('btnDownloadTerminatedExcel').classList.add('hidden');
-      currentTerminatedLeads = [];
+        $('leadsSection').classList.add('hidden');
+        $('btnDownloadTerminatedExcel').classList.add('hidden');
+        currentTerminatedLeads = [];
     });
 
     // ========== LEAD GENERATION FORM ==========
     $('btnGenerateLead').addEventListener('click', () => {
-      $('leadFormSection').classList.remove('hidden');
-      $('ordersSection').classList.add('hidden');
-      $('leadsSection').classList.add('hidden');
-      $('detailsSection').classList.add('hidden');
+        $('leadFormSection').classList.remove('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadsSection').classList.add('hidden');
+        $('detailsSection').classList.add('hidden');
     });
 
     $('btnCloseLeadForm').addEventListener('click', () => {
-      $('leadFormSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
     });
 
     document.querySelectorAll('input[name="leadType"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        const isHomecare = radio.value === 'homecare';
-        $('hardwareFields').classList.toggle('hidden', isHomecare);
-        $('homecareFields').classList.toggle('hidden', !isHomecare);
-      });
+        radio.addEventListener('change', () => {
+            const isHomecare = radio.value === 'homecare';
+            $('hardwareFields').classList.toggle('hidden', isHomecare);
+            $('homecareFields').classList.toggle('hidden', !isHomecare);
+        });
     });
 
     $('lfPurchaseFreq').addEventListener('change', () => {
-      $('lfPurchaseFreqOtherBox').classList.toggle('hidden', $('lfPurchaseFreq').value !== 'Other');
-      if ($('lfPurchaseFreq').value !== 'Other') $('lfPurchaseFreqOther').value = '';
+        $('lfPurchaseFreqOtherBox').classList.toggle('hidden', $('lfPurchaseFreq').value !== 'Other');
+        if ($('lfPurchaseFreq').value !== 'Other') $('lfPurchaseFreqOther').value = '';
     });
 
     document.querySelectorAll('input[name="lfSellingSwool"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        const val = radio.value;
-        $('lfSokoniSourceBox').classList.toggle('hidden', val !== 'Yes - Sokoni');
-        $('lfOtherBrandsBox').classList.toggle('hidden', val === 'No');
-        $('lfWillingnessBox').classList.toggle('hidden', val === 'Yes - Sokoni');
-      });
+        radio.addEventListener('change', () => {
+            const val = radio.value;
+            $('lfSokoniSourceBox').classList.toggle('hidden', val !== 'Yes - Sokoni');
+            $('lfOtherBrandsBox').classList.toggle('hidden', val === 'No');
+            $('lfWillingnessBox').classList.toggle('hidden', val === 'Yes - Sokoni');
+        });
     });
 
     function getPriceTable() {
-      const brands = ['sokoni', 'easyclean', 'farasi', 'safisha', 'suguwa', 'other'];
-      const skus = ['750', '75', '15', 'pot'];
-      const result = {};
-      brands.forEach(b => {
-        result[b] = {};
-        skus.forEach(s => {
-          const el = $('price_' + b + '_' + s);
-          result[b][s] = el ? (el.value ? parseFloat(el.value) : '') : '';
+        const brands = ['sokoni', 'easyclean', 'farasi', 'safisha', 'suguwa', 'other'];
+        const skus = ['750', '75', '15', 'pot'];
+        const result = {};
+        brands.forEach(b => {
+            result[b] = {};
+            skus.forEach(s => {
+                const el = $('price_' + b + '_' + s);
+                result[b][s] = el ? (el.value ? parseFloat(el.value) : '') : '';
+            });
         });
-      });
-      return result;
+        return result;
     }
 
     function getWillingnessMatrix() {
-      const fields = ['wStock', 'wPurchase', 'wKYC', 'wPayment'];
-      const labels = ['Willing to stock', 'Able to consistently purchase 10 bales monthly', 'Willing to submit KYC', 'Willing to abide to Payment terms (Mpesa on delivery)'];
-      const result = {};
-      fields.forEach((f, i) => {
-        const selected = document.querySelector('input[name="' + f + '"]:checked');
-        result[labels[i]] = selected ? selected.value : 'Not answered';
-      });
-      return result;
+        const fields = ['wStock', 'wPurchase', 'wKYC', 'wPayment'];
+        const labels = ['Willing to stock', 'Able to consistently purchase 10 bales monthly', 'Willing to submit KYC', 'Willing to abide to Payment terms (Mpesa on delivery)'];
+        const result = {};
+        fields.forEach((f, i) => {
+            const selected = document.querySelector('input[name="' + f + '"]:checked');
+            result[labels[i]] = selected ? selected.value : 'Not answered';
+        });
+        return result;
     }
 
     $('btnSubmitLeadForm').addEventListener('click', async () => {
-      const leadType = document.querySelector('input[name="leadType"]:checked');
-      if (!leadType) {
-        showMsg('Please select a lead type (Hardware or Homecare)', 'error');
-        return;
-      }
-      
-      const isHomecare = leadType.value === 'homecare';
-      
-      const region = $('lfRegion').value;
-      const area = $('lfArea').value.trim();
-      const location = $('lfLocation').value.trim();
-      const storeName = $('lfStoreName').value.trim();
-      const contactPerson = $('lfContactPerson').value.trim();
-      const mobileNumber = $('lfMobileNumber').value.trim();
-      
-      if (!region) { showMsg('Please select a Region', 'error'); return; }
-      if (!area) { showMsg('Please enter an Area', 'error'); return; }
-      if (!location) { showMsg('Please enter a Location/Landmark', 'error'); return; }
-      if (!storeName) { showMsg('Please enter Store Name', 'error'); return; }
-      
-      let payload = {
-        leadType: leadType.value,
-        salesRepEmail: $('salesRepEmail').value.trim(),
-        salesRepPassword: $('salesRepPassword').value.trim(),
-        region, area, location, storeName, contactPerson, mobileNumber
-      };
-      
-      if (isHomecare) {
-        const sellingSwoolRadio = document.querySelector('input[name="lfSellingSwool"]:checked');
-        const sellingSwool = sellingSwoolRadio ? sellingSwoolRadio.value : '';
-        const sokoniSource = $('lfSokoniSource').value.trim();
-        const otherBrandCheckboxes = document.querySelectorAll('#lfOtherBrandsGroup input[type="checkbox"]:checked');
-        const otherBrands = Array.from(otherBrandCheckboxes).map(cb => cb.value).join(', ');
-        const willingnessMatrix = getWillingnessMatrix();
-        const notStockingReason = $('lfNotStockingReason').value.trim();
-        const comments = $('lfComments').value.trim();
-        const monthlyVolume = $('lfMonthlyVolume').value.trim();
-        const priceTable = getPriceTable();
-        const additionalFeedback = $('lfAdditionalFeedbackHomecare').value.trim();
-        
-        if (!sellingSwool) { showMsg('Please answer: Is the customer selling steelwool?', 'error'); return; }
-        if (sellingSwool === 'Yes - Sokoni' && !sokoniSource) { showMsg('Please enter where the shop purchases Sokoni Steelwool from', 'error'); return; }
-        if (sellingSwool !== 'No' && !otherBrands) { showMsg('Please select other brands (or None)', 'error'); return; }
-        if (!notStockingReason) { showMsg('Please fill in the reason for not wanting to stock steelwool', 'error'); return; }
-        if (!comments) { showMsg('Please fill in comments, suggestions or observations', 'error'); return; }
-        if (!monthlyVolume) { showMsg('Please enter the estimated monthly volume of sales', 'error'); return; }
-        
-        payload = {
-          ...payload,
-          sellingSwool,
-          sokoniSource,
-          otherBrands,
-          willingnessMatrix: JSON.stringify(willingnessMatrix),
-          notStockingReason,
-          comments,
-          monthlyVolume,
-          priceTable: JSON.stringify(priceTable),
-          additionalFeedback
-        };
-      } else {
-        const outletCategory = $('lfOutletCategory').value;
-        const brandCheckboxes = document.querySelectorAll('#lfBrandsGroup input[type="checkbox"]:checked');
-        const brandsStocked = Array.from(brandCheckboxes).map(cb => cb.value).join(', ');
-        let purchaseFrequency = $('lfPurchaseFreq').value;
-        if (purchaseFrequency === 'Other') {
-          const otherText = $('lfPurchaseFreqOther').value.trim();
-          if (!otherText) { showMsg('Please specify the purchase frequency', 'error'); return; }
-          purchaseFrequency = 'Other: ' + otherText;
+        const leadType = document.querySelector('input[name="leadType"]:checked');
+        if (!leadType) {
+            showMsg('Please select a lead type (Hardware or Homecare)', 'error');
+            return;
         }
-        const distributorType = $('lfDistributorType').value;
-        const mainSupplier = $('lfMainSupplier').value.trim();
-        const weldplusAwareness = $('lfWeldplusAware').value;
-        const additionalFeedback = $('lfAdditionalFeedback').value.trim();
         
-        if (!outletCategory) { showMsg('Please select Outlet Category', 'error'); return; }
-        if (!brandsStocked) { showMsg('Please select at least one brand', 'error'); return; }
-        if (!purchaseFrequency) { showMsg('Please select Purchase Frequency', 'error'); return; }
-        if (!distributorType) { showMsg('Please select Manufacturer/Distributor', 'error'); return; }
-        if (!weldplusAwareness) { showMsg('Please select Weldplus awareness', 'error'); return; }
+        const isHomecare = leadType.value === 'homecare';
         
-        payload = {
-          ...payload,
-          outletCategory,
-          brandsStocked,
-          purchaseFrequency,
-          mainSupplier,
-          distributorType,
-          weldplusAwareness,
-          additionalFeedback
+        const region = $('lfRegion').value;
+        const area = $('lfArea').value.trim();
+        const location = $('lfLocation').value.trim();
+        const storeName = $('lfStoreName').value.trim();
+        const contactPerson = $('lfContactPerson').value.trim();
+        const mobileNumber = $('lfMobileNumber').value.trim();
+        
+        if (!region) { showMsg('Please select a Region', 'error'); return; }
+        if (!area) { showMsg('Please enter an Area', 'error'); return; }
+        if (!location) { showMsg('Please enter a Location/Landmark', 'error'); return; }
+        if (!storeName) { showMsg('Please enter Store Name', 'error'); return; }
+        
+        let payload = {
+            leadType: leadType.value,
+            salesRepEmail: $('salesRepEmail').value.trim(),
+            salesRepPassword: $('salesRepPassword').value.trim(),
+            region, area, location, storeName, contactPerson, mobileNumber
         };
-      }
-      
-      const res = await api('submitLeadForm', payload);
-      
-      if (res.success) {
-        showMsg(res.message, 'success');
-        $('lfRegion').value = '';
-        $('lfArea').value = '';
-        $('lfLocation').value = '';
-        $('lfStoreName').value = '';
-        $('lfContactPerson').value = '';
-        $('lfMobileNumber').value = '';
-        $('lfOutletCategory').value = '';
-        $('lfPurchaseFreq').value = '';
-        $('lfPurchaseFreqOther').value = '';
-        $('lfPurchaseFreqOtherBox').classList.add('hidden');
-        $('lfDistributorType').value = '';
-        $('lfMainSupplier').value = '';
-        $('lfWeldplusAware').value = '';
-        $('lfAdditionalFeedback').value = '';
-        document.querySelectorAll('#lfBrandsGroup input[type="checkbox"]').forEach(cb => cb.checked = false);
-        document.querySelectorAll('input[name="lfSellingSwool"]').forEach(r => r.checked = false);
-        $('lfSokoniSource').value = '';
-        $('lfSokoniSourceBox').classList.add('hidden');
-        document.querySelectorAll('#lfOtherBrandsGroup input[type="checkbox"]').forEach(cb => cb.checked = false);
-        $('lfOtherBrandsBox').classList.add('hidden');
-        document.querySelectorAll('input[name="wStock"],input[name="wPurchase"],input[name="wKYC"],input[name="wPayment"]').forEach(r => r.checked = false);
-        $('lfWillingnessBox').classList.add('hidden');
-        $('lfNotStockingReason').value = '';
-        $('lfComments').value = '';
-        $('lfMonthlyVolume').value = '';
-        ['sokoni','easyclean','farasi','safisha','suguwa','other'].forEach(b => {
-          ['750','75','15','pot'].forEach(s => { const el = $('price_' + b + '_' + s); if (el) el.value = ''; });
-        });
-        $('lfAdditionalFeedbackHomecare').value = '';
-        $('leadFormSection').classList.add('hidden');
-      } else {
-        showMsg(res.message, 'error');
-      }
+        
+        if (isHomecare) {
+            const sellingSwoolRadio = document.querySelector('input[name="lfSellingSwool"]:checked');
+            const sellingSwool = sellingSwoolRadio ? sellingSwoolRadio.value : '';
+            const sokoniSource = $('lfSokoniSource').value.trim();
+            const otherBrandCheckboxes = document.querySelectorAll('#lfOtherBrandsGroup input[type="checkbox"]:checked');
+            const otherBrands = Array.from(otherBrandCheckboxes).map(cb => cb.value).join(', ');
+            const willingnessMatrix = getWillingnessMatrix();
+            const notStockingReason = $('lfNotStockingReason').value.trim();
+            const comments = $('lfComments').value.trim();
+            const monthlyVolume = $('lfMonthlyVolume').value.trim();
+            const priceTable = getPriceTable();
+            const additionalFeedback = $('lfAdditionalFeedbackHomecare').value.trim();
+            
+            if (!sellingSwool) { showMsg('Please answer: Is the customer selling steelwool?', 'error'); return; }
+            if (sellingSwool === 'Yes - Sokoni' && !sokoniSource) { showMsg('Please enter where the shop purchases Sokoni Steelwool from', 'error'); return; }
+            if (sellingSwool !== 'No' && !otherBrands) { showMsg('Please select other brands (or None)', 'error'); return; }
+            if (!notStockingReason) { showMsg('Please fill in the reason for not wanting to stock steelwool', 'error'); return; }
+            if (!comments) { showMsg('Please fill in comments, suggestions or observations', 'error'); return; }
+            if (!monthlyVolume) { showMsg('Please enter the estimated monthly volume of sales', 'error'); return; }
+            
+            payload = {
+                ...payload,
+                sellingSwool,
+                sokoniSource,
+                otherBrands,
+                willingnessMatrix: JSON.stringify(willingnessMatrix),
+                notStockingReason,
+                comments,
+                monthlyVolume,
+                priceTable: JSON.stringify(priceTable),
+                additionalFeedback
+            };
+        } else {
+            const outletCategory = $('lfOutletCategory').value;
+            const brandCheckboxes = document.querySelectorAll('#lfBrandsGroup input[type="checkbox"]:checked');
+            const brandsStocked = Array.from(brandCheckboxes).map(cb => cb.value).join(', ');
+            let purchaseFrequency = $('lfPurchaseFreq').value;
+            if (purchaseFrequency === 'Other') {
+                const otherText = $('lfPurchaseFreqOther').value.trim();
+                if (!otherText) { showMsg('Please specify the purchase frequency', 'error'); return; }
+                purchaseFrequency = 'Other: ' + otherText;
+            }
+            const distributorType = $('lfDistributorType').value;
+            const mainSupplier = $('lfMainSupplier').value.trim();
+            const weldplusAwareness = $('lfWeldplusAware').value;
+            const additionalFeedback = $('lfAdditionalFeedback').value.trim();
+            
+            if (!outletCategory) { showMsg('Please select Outlet Category', 'error'); return; }
+            if (!brandsStocked) { showMsg('Please select at least one brand', 'error'); return; }
+            if (!purchaseFrequency) { showMsg('Please select Purchase Frequency', 'error'); return; }
+            if (!distributorType) { showMsg('Please select Manufacturer/Distributor', 'error'); return; }
+            if (!weldplusAwareness) { showMsg('Please select Weldplus awareness', 'error'); return; }
+            
+            payload = {
+                ...payload,
+                outletCategory,
+                brandsStocked,
+                purchaseFrequency,
+                mainSupplier,
+                distributorType,
+                weldplusAwareness,
+                additionalFeedback
+            };
+        }
+        
+        const res = await api('submitLeadForm', payload);
+        
+        if (res.success) {
+            showMsg(res.message, 'success');
+            $('lfRegion').value = '';
+            $('lfArea').value = '';
+            $('lfLocation').value = '';
+            $('lfStoreName').value = '';
+            $('lfContactPerson').value = '';
+            $('lfMobileNumber').value = '';
+            $('lfOutletCategory').value = '';
+            $('lfPurchaseFreq').value = '';
+            $('lfPurchaseFreqOther').value = '';
+            $('lfPurchaseFreqOtherBox').classList.add('hidden');
+            $('lfDistributorType').value = '';
+            $('lfMainSupplier').value = '';
+            $('lfWeldplusAware').value = '';
+            $('lfAdditionalFeedback').value = '';
+            document.querySelectorAll('#lfBrandsGroup input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('input[name="lfSellingSwool"]').forEach(r => r.checked = false);
+            $('lfSokoniSource').value = '';
+            $('lfSokoniSourceBox').classList.add('hidden');
+            document.querySelectorAll('#lfOtherBrandsGroup input[type="checkbox"]').forEach(cb => cb.checked = false);
+            $('lfOtherBrandsBox').classList.add('hidden');
+            document.querySelectorAll('input[name="wStock"],input[name="wPurchase"],input[name="wKYC"],input[name="wPayment"]').forEach(r => r.checked = false);
+            $('lfWillingnessBox').classList.add('hidden');
+            $('lfNotStockingReason').value = '';
+            $('lfComments').value = '';
+            $('lfMonthlyVolume').value = '';
+            ['sokoni','easyclean','farasi','safisha','suguwa','other'].forEach(b => {
+                ['750','75','15','pot'].forEach(s => { const el = $('price_' + b + '_' + s); if (el) el.value = ''; });
+            });
+            $('lfAdditionalFeedbackHomecare').value = '';
+            $('leadFormSection').classList.add('hidden');
+        } else {
+            showMsg(res.message, 'error');
+        }
     });
 
     // ========== LOAD CUSTOMER ==========
     $('btnLoad').addEventListener('click', async () => {
-      const code = $('customerCode').value.trim();
-      const role = $('roleSelect').value;
-      
-      if (!role) { showMsg('Select a role first', 'error'); return; }
-      if (!code) { showMsg('Enter customer code', 'error'); return; }
-      if (role === 'SalesRep' && !isSalesRepLoggedIn) { showMsg('Please login first', 'error'); return; }
-      if (role === 'Supervisor' && !isSupervisorLoggedIn) { showMsg('Please login as supervisor first', 'error'); return; }
-      
-      const res = await api('getLeadStatus', {
-        customerCode: code,
-        role: role,
-        salesRepEmail: $('salesRepEmail').value.trim(),
-        salesRepPassword: $('salesRepPassword').value.trim(),
-        type: role === 'Supervisor' ? supervisorType : (isSalesRepLoggedIn ? 'hardware' : 'hardware')
-      });
-      
-      if (!res.success) {
-        showMsg(res.message, 'error');
-        return;
-      }
-      
-      currentLead = res.data;
-      $('qualification').value = currentLead.qualification || '';
-      $('presentation').value = currentLead.presentation || '';
-      $('kycOnboarding').value = currentLead.kycOnboarding || '';
-      $('assignEmail').value = currentLead.salesRepEmail || '';
-      
-      if (currentLead.qualification && currentLead.qualification.startsWith('Other: ')) {
-        $('qualification').value = 'Other';
-        $('qualificationOther').value = currentLead.qualification.substring(7);
-      } else {
-        $('qualificationOther').value = '';
-      }
-      
-      if (currentLead.presentation && currentLead.presentation.startsWith('Other: ')) {
-        $('presentation').value = 'Other';
-        $('presentationOther').value = currentLead.presentation.substring(7);
-      } else {
-        $('presentationOther').value = '';
-      }
-      
-      renderDetails(currentLead);
-      $('detailsSection').classList.remove('hidden');
-      $('leadsSection').classList.add('hidden');
-      $('ordersSection').classList.add('hidden');
-      $('leadFormSection').classList.add('hidden');
-      
-      const existingBanner = document.querySelector('.terminated-banner');
-      if (existingBanner) existingBanner.remove();
-      if (currentLead.kycOnboarding === 'Lead Terminated') {
-        const banner = document.createElement('div');
-        banner.className = 'terminated-banner';
-        banner.innerHTML = '🚫 This lead has been terminated and is excluded from approved leads lists.';
-        $('detailsSection').appendChild(banner);
-      }
-      
-      updateUI();
-      showMsg('Lead loaded (row ' + currentLead.row + ')', 'success');
+        const code = $('customerCode').value.trim();
+        const role = $('roleSelect').value;
+        
+        if (!role) { showMsg('Select a role first', 'error'); return; }
+        if (!code) { showMsg('Enter customer code', 'error'); return; }
+        if (role === 'SalesRep' && !isSalesRepLoggedIn) { showMsg('Please login first', 'error'); return; }
+        if (role === 'Supervisor' && !isSupervisorLoggedIn) { showMsg('Please login as supervisor first', 'error'); return; }
+        
+        const res = await api('getLeadStatus', {
+            customerCode: code,
+            role: role,
+            salesRepEmail: $('salesRepEmail').value.trim(),
+            salesRepPassword: $('salesRepPassword').value.trim(),
+            type: role === 'Supervisor' ? supervisorType : (isSalesRepLoggedIn ? 'hardware' : 'hardware')
+        });
+        
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            return;
+        }
+        
+        currentLead = res.data;
+        $('qualification').value = currentLead.qualification || '';
+        $('presentation').value = currentLead.presentation || '';
+        $('kycOnboarding').value = currentLead.kycOnboarding || '';
+        $('assignEmail').value = currentLead.salesRepEmail || '';
+        
+        if (currentLead.qualification && currentLead.qualification.startsWith('Other: ')) {
+            $('qualification').value = 'Other';
+            $('qualificationOther').value = currentLead.qualification.substring(7);
+        } else {
+            $('qualificationOther').value = '';
+        }
+        
+        if (currentLead.presentation && currentLead.presentation.startsWith('Other: ')) {
+            $('presentation').value = 'Other';
+            $('presentationOther').value = currentLead.presentation.substring(7);
+        } else {
+            $('presentationOther').value = '';
+        }
+        
+        renderDetails(currentLead);
+        $('detailsSection').classList.remove('hidden');
+        $('leadsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
+        
+        const existingBanner = document.querySelector('.terminated-banner');
+        if (existingBanner) existingBanner.remove();
+        if (currentLead.kycOnboarding === 'Lead Terminated') {
+            const banner = document.createElement('div');
+            banner.className = 'terminated-banner';
+            banner.innerHTML = '🚫 This lead has been terminated and is excluded from approved leads lists.';
+            $('detailsSection').appendChild(banner);
+        }
+        
+        updateUI();
+        showMsg('Lead loaded (row ' + currentLead.row + ')', 'success');
     });
 
     function renderDetails(d) {
-      let fields;
-      if (d.type === 'homecare') {
-        fields = [
-          ['Region', d.region],
-          ['Area', d.area],
-          ['Location', d.location],
-          ['Store Name', d.storeName],
-          ['Contact', d.contactPerson],
-          ['Mobile', d.mobileNumber],
-          ['Selling Steelwool', d.sellingSwool || ''],
-          ['Sokoni Source', d.sokoniSource || ''],
-          ['Other Brands', d.otherBrands || ''],
-          ['Monthly Volume', d.monthlyVolume || ''],
-          ['Code', d.customerCode]
-        ];
-      } else {
-        fields = [
-          ['Region', d.region],
-          ['Area', d.area],
-          ['Location', d.location],
-          ['Store Name', d.storeName],
-          ['Contact', d.contactPerson],
-          ['Mobile', d.mobileNumber],
-          ['Category', d.outletCategory],
-          ['Brands', d.brandsStocked],
-          ['Freq', d.purchaseFrequency],
-          ['Supplier', d.mainSupplier],
-          ['Type', d.distributorType],
-          ['Weldplus', d.weldplusAwareness],
-          ['Feedback', d.additionalFeedback],
-          ['Code', d.customerCode]
-        ];
-      }
-      $('detailsTable').innerHTML = '<tr>' + fields.map(x => '<th>' + x[0] + '</th>').join('') + '</tr><tr>' + fields.map(x => '<td>' + (x[1] || '') + '</td>').join('') + '</tr>';
+        let fields;
+        if (d.type === 'homecare') {
+            fields = [
+                ['Region', d.region],
+                ['Area', d.area],
+                ['Location', d.location],
+                ['Store Name', d.storeName],
+                ['Contact', d.contactPerson],
+                ['Mobile', d.mobileNumber],
+                ['Selling Steelwool', d.sellingSwool || ''],
+                ['Sokoni Source', d.sokoniSource || ''],
+                ['Other Brands', d.otherBrands || ''],
+                ['Monthly Volume', d.monthlyVolume || ''],
+                ['Code', d.customerCode]
+            ];
+        } else {
+            fields = [
+                ['Region', d.region],
+                ['Area', d.area],
+                ['Location', d.location],
+                ['Store Name', d.storeName],
+                ['Contact', d.contactPerson],
+                ['Mobile', d.mobileNumber],
+                ['Category', d.outletCategory],
+                ['Brands', d.brandsStocked],
+                ['Freq', d.purchaseFrequency],
+                ['Supplier', d.mainSupplier],
+                ['Type', d.distributorType],
+                ['Weldplus', d.weldplusAwareness],
+                ['Feedback', d.additionalFeedback],
+                ['Code', d.customerCode]
+            ];
+        }
+        $('detailsTable').innerHTML = '<tr>' + fields.map(x => '<th>' + x[0] + '</th>').join('') + '</tr><tr>' + fields.map(x => '<td>' + (x[1] || '') + '</td>').join('') + '</tr>';
     }
 
     // ========== QUALIFICATION CHANGE ==========
     $('qualification').addEventListener('change', () => {
-      $('qualificationOtherBox').classList.toggle('hidden', $('qualification').value !== 'Other');
-      if ($('qualification').value !== 'Other') $('qualificationOther').value = '';
+        $('qualificationOtherBox').classList.toggle('hidden', $('qualification').value !== 'Other');
+        if ($('qualification').value !== 'Other') $('qualificationOther').value = '';
     });
 
     $('presentation').addEventListener('change', () => {
-      $('presentationOtherBox').classList.toggle('hidden', $('presentation').value !== 'Other');
-      if ($('presentation').value !== 'Other') $('presentationOther').value = '';
+        $('presentationOtherBox').classList.toggle('hidden', $('presentation').value !== 'Other');
+        if ($('presentation').value !== 'Other') $('presentationOther').value = '';
     });
 
     // ========== ORDERS ==========
     $('btnPlaceOrder').addEventListener('click', () => {
-      $('ordersSection').classList.remove('hidden');
-      $('leadsSection').classList.add('hidden');
-      $('detailsSection').classList.add('hidden');
-      $('leadFormSection').classList.add('hidden');
-      $('orderCustomerCode').value = '';
-      $('orderNumber').innerHTML = '<option value="">-- Check status first --</option>';
-      $('orderNumber').disabled = true;
-      $('orderQuantity').value = '';
-      $('orderStatus').classList.add('hidden');
-      currentOrderStatus = null;
+        $('ordersSection').classList.remove('hidden');
+        $('leadsSection').classList.add('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
+        $('orderCustomerCode').value = '';
+        $('orderNumber').innerHTML = '<option value="">-- Check status first --</option>';
+        $('orderNumber').disabled = true;
+        $('orderQuantity').value = '';
+        $('orderStatus').classList.add('hidden');
+        currentOrderStatus = null;
     });
 
     $('btnCloseOrders').addEventListener('click', () => {
-      $('ordersSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
     });
 
     $('btnCheckStatus').addEventListener('click', async () => {
-      const code = $('orderCustomerCode').value.trim();
-      if (!code) { showMsg('Enter customer code', 'error'); return; }
-      if (!isSalesRepLoggedIn) { showMsg('Login first', 'error'); return; }
-      
-      const res = await api('getAvailableOrders', {
-        customerCode: code,
-        salesRepEmail: $('salesRepEmail').value.trim(),
-        salesRepPassword: $('salesRepPassword').value.trim(),
-        type: 'hardware'
-      });
-      
-      if (!res.success) {
-        showMsg(res.message, 'error');
-        $('orderStatus').classList.add('hidden');
-        return;
-      }
-      
-      currentOrderStatus = res;
-      updateOrderDropdown(res);
-      
-      let html = '';
-      if (res.submittedOrders.length === 0) {
-        html = 'No orders yet. Submit Order 1.';
-      } else if (res.nextAvailableOrder === -1) {
-        html = 'All 3 orders submitted.';
-      } else {
-        html = 'Submitted: Order ' + res.submittedOrders.join(', ') + '<br><strong>Next:</strong> Order ' + res.nextAvailableOrder;
-      }
-      $('orderStatus').innerHTML = html;
-      $('orderStatus').classList.remove('hidden');
+        const code = $('orderCustomerCode').value.trim();
+        if (!code) { showMsg('Enter customer code', 'error'); return; }
+        if (!isSalesRepLoggedIn) { showMsg('Login first', 'error'); return; }
+        
+        const res = await api('getAvailableOrders', {
+            customerCode: code,
+            salesRepEmail: $('salesRepEmail').value.trim(),
+            salesRepPassword: $('salesRepPassword').value.trim(),
+            type: 'hardware'
+        });
+        
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            $('orderStatus').classList.add('hidden');
+            return;
+        }
+        
+        currentOrderStatus = res;
+        updateOrderDropdown(res);
+        
+        let html = '';
+        if (res.submittedOrders.length === 0) {
+            html = 'No orders yet. Submit Order 1.';
+        } else if (res.nextAvailableOrder === -1) {
+            html = 'All 3 orders submitted.';
+        } else {
+            html = 'Submitted: Order ' + res.submittedOrders.join(', ') + '<br><strong>Next:</strong> Order ' + res.nextAvailableOrder;
+        }
+        $('orderStatus').innerHTML = html;
+        $('orderStatus').classList.remove('hidden');
     });
 
     function updateOrderDropdown(s) {
-      let o = '<option value="">-- Select Order --</option>';
-      for (let i = 1; i <= 3; i++) {
-        const sub = s.submittedOrders.includes(i);
-        const av = i === s.nextAvailableOrder;
-        const dis = sub || (!av && s.nextAvailableOrder !== -1);
-        const lab = sub ? 'Order ' + i + ' (Done)' : av ? 'Order ' + i + ' (Available)' : 'Order ' + i;
-        o += '<option value="Order ' + i + '" ' + (dis ? 'disabled' : '') + '>' + lab + '</option>';
-      }
-      $('orderNumber').innerHTML = o;
-      $('orderNumber').disabled = s.nextAvailableOrder === -1;
+        let o = '<option value="">-- Select Order --</option>';
+        for (let i = 1; i <= 3; i++) {
+            const sub = s.submittedOrders.includes(i);
+            const av = i === s.nextAvailableOrder;
+            const dis = sub || (!av && s.nextAvailableOrder !== -1);
+            const lab = sub ? 'Order ' + i + ' (Done)' : av ? 'Order ' + i + ' (Available)' : 'Order ' + i;
+            o += '<option value="Order ' + i + '" ' + (dis ? 'disabled' : '') + '>' + lab + '</option>';
+        }
+        $('orderNumber').innerHTML = o;
+        $('orderNumber').disabled = s.nextAvailableOrder === -1;
     }
 
     $('btnSubmitOrder').addEventListener('click', async () => {
-      const code = $('orderCustomerCode').value.trim();
-      const num = $('orderNumber').value;
-      const qty = parseFloat($('orderQuantity').value);
-      
-      if (!code || !num || !qty || qty <= 0) {
-        showMsg('Fill all fields', 'error');
-        return;
-      }
-      if (!currentOrderStatus) {
-        showMsg('Check status first', 'error');
-        return;
-      }
-      if (!isSalesRepLoggedIn) {
-        showMsg('Login first', 'error');
-        return;
-      }
-      
-      const res = await api('submitOrder', {
-        customerCode: code,
-        orderNumber: num,
-        quantity: qty,
-        salesRepEmail: $('salesRepEmail').value.trim(),
-        salesRepPassword: $('salesRepPassword').value.trim(),
-        type: 'hardware'
-      });
-      
-      if (res.success) {
-        showMsg(res.message, 'success');
-        $('orderQuantity').value = '';
-        $('btnCheckStatus').click();
-      } else {
-        showMsg(res.message, 'error');
-      }
+        const code = $('orderCustomerCode').value.trim();
+        const num = $('orderNumber').value;
+        const qty = parseFloat($('orderQuantity').value);
+        
+        if (!code || !num || !qty || qty <= 0) {
+            showMsg('Fill all fields', 'error');
+            return;
+        }
+        if (!currentOrderStatus) {
+            showMsg('Check status first', 'error');
+            return;
+        }
+        if (!isSalesRepLoggedIn) {
+            showMsg('Login first', 'error');
+            return;
+        }
+        
+        const res = await api('submitOrder', {
+            customerCode: code,
+            orderNumber: num,
+            quantity: qty,
+            salesRepEmail: $('salesRepEmail').value.trim(),
+            salesRepPassword: $('salesRepPassword').value.trim(),
+            type: 'hardware'
+        });
+        
+        if (res.success) {
+            showMsg(res.message, 'success');
+            $('orderQuantity').value = '';
+            $('btnCheckStatus').click();
+        } else {
+            showMsg(res.message, 'error');
+        }
     });
 
     // ========== SUPERVISOR ACTIONS ==========
@@ -1126,294 +1214,294 @@
     $('btnDecline').addEventListener('click', () => updateQualification('Declined'));
 
     async function updateQualification(action) {
-      if (!currentLead) { showMsg('Load a lead first', 'error'); return; }
-      if (!$('qualification').value) { showMsg('Select qualification', 'error'); return; }
-      
-      let qv = $('qualification').value;
-      if (qv === 'Other') {
-        const ct = $('qualificationOther').value.trim();
-        if (!ct) { showMsg('Specify reason', 'error'); return; }
-        qv = 'Other: ' + ct;
-      }
-      
-      const res = await api('updateQualificationBySupervisor', {
-        customerCode: $('customerCode').value.trim(),
-        qualificationValue: qv,
-        approvalAction: action,
-        salesRepEmail: $('assignEmail').value.trim(),
-        password: $('supervisorPasswordField').value.trim(),
-        type: supervisorType
-      });
-      
-      if (res.success) {
-        showMsg('Lead ' + action.toLowerCase(), 'success');
-        $('btnLoad').click();
-        loadDashboard();
-      } else {
-        showMsg(res.message, 'error');
-      }
+        if (!currentLead) { showMsg('Load a lead first', 'error'); return; }
+        if (!$('qualification').value) { showMsg('Select qualification', 'error'); return; }
+        
+        let qv = $('qualification').value;
+        if (qv === 'Other') {
+            const ct = $('qualificationOther').value.trim();
+            if (!ct) { showMsg('Specify reason', 'error'); return; }
+            qv = 'Other: ' + ct;
+        }
+        
+        const res = await api('updateQualificationBySupervisor', {
+            customerCode: $('customerCode').value.trim(),
+            qualificationValue: qv,
+            approvalAction: action,
+            salesRepEmail: $('assignEmail').value.trim(),
+            password: $('supervisorPasswordField').value.trim(),
+            type: supervisorType
+        });
+        
+        if (res.success) {
+            showMsg('Lead ' + action.toLowerCase(), 'success');
+            $('btnLoad').click();
+            loadDashboard();
+        } else {
+            showMsg(res.message, 'error');
+        }
     }
 
     // ========== SUBMIT (Update) ==========
     $('btnSubmit').addEventListener('click', async () => {
-      const role = $('roleSelect').value;
-      const code = $('customerCode').value.trim();
-      
-      if (!currentLead || !code) {
-        showMsg('Load a lead first', 'error');
-        return;
-      }
-      
-      if (role === 'Supervisor') {
-        let qv = $('qualification').value;
-        if (qv === 'Other') {
-          const ct = $('qualificationOther').value.trim();
-          if (!ct) { showMsg('Specify reason', 'error'); return; }
-          qv = 'Other: ' + ct;
+        const role = $('roleSelect').value;
+        const code = $('customerCode').value.trim();
+        
+        if (!currentLead || !code) {
+            showMsg('Load a lead first', 'error');
+            return;
         }
         
-        const res = await api('updateQualificationBySupervisor', {
-          customerCode: code,
-          qualificationValue: qv,
-          approvalAction: '',
-          salesRepEmail: $('assignEmail').value.trim(),
-          password: $('supervisorPasswordField').value.trim(),
-          type: supervisorType
-        });
-        
-        if (res.success) {
-          showMsg('Qualification updated', 'success');
-          $('btnLoad').click();
-          loadDashboard();
-        } else {
-          showMsg(res.message, 'error');
-        }
-      } else if (role === 'SalesRep') {
-        let updates = [], errors = [];
-        
-        if ($('presentation').value) {
-          let pv = $('presentation').value;
-          if (pv === 'Other') {
-            const ct = $('presentationOther').value.trim();
-            if (!ct) { showMsg('Specify reason', 'error'); return; }
-            pv = 'Other: ' + ct;
-          }
-          if (pv !== (currentLead.presentation || '')) {
-            const res = await api('updatePresentationBySalesRep', {
-              customerCode: code,
-              presentationValue: pv,
-              salesRepEmail: $('salesRepEmail').value.trim(),
-              password: $('salesRepPassword').value.trim(),
-              type: currentLead.type || 'hardware'
+        if (role === 'Supervisor') {
+            let qv = $('qualification').value;
+            if (qv === 'Other') {
+                const ct = $('qualificationOther').value.trim();
+                if (!ct) { showMsg('Specify reason', 'error'); return; }
+                qv = 'Other: ' + ct;
+            }
+            
+            const res = await api('updateQualificationBySupervisor', {
+                customerCode: code,
+                qualificationValue: qv,
+                approvalAction: '',
+                salesRepEmail: $('assignEmail').value.trim(),
+                password: $('supervisorPasswordField').value.trim(),
+                type: supervisorType
             });
-            if (res.success) updates.push('Presentation');
-            else errors.push(res.message);
-          }
+            
+            if (res.success) {
+                showMsg('Qualification updated', 'success');
+                $('btnLoad').click();
+                loadDashboard();
+            } else {
+                showMsg(res.message, 'error');
+            }
+        } else if (role === 'SalesRep') {
+            let updates = [], errors = [];
+            
+            if ($('presentation').value) {
+                let pv = $('presentation').value;
+                if (pv === 'Other') {
+                    const ct = $('presentationOther').value.trim();
+                    if (!ct) { showMsg('Specify reason', 'error'); return; }
+                    pv = 'Other: ' + ct;
+                }
+                if (pv !== (currentLead.presentation || '')) {
+                    const res = await api('updatePresentationBySalesRep', {
+                        customerCode: code,
+                        presentationValue: pv,
+                        salesRepEmail: $('salesRepEmail').value.trim(),
+                        password: $('salesRepPassword').value.trim(),
+                        type: currentLead.type || 'hardware'
+                    });
+                    if (res.success) updates.push('Presentation');
+                    else errors.push(res.message);
+                }
+            }
+            
+            if ($('kycOnboarding').value && $('kycOnboarding').value !== currentLead.kycOnboarding) {
+                const res = await api('updateKYCOnboardingBySalesRep', {
+                    customerCode: code,
+                    kycValue: $('kycOnboarding').value,
+                    salesRepEmail: $('salesRepEmail').value.trim(),
+                    password: $('salesRepPassword').value.trim(),
+                    type: currentLead.type || 'hardware'
+                });
+                if (res.success) updates.push('KYC Onboarding');
+                else errors.push(res.message);
+            }
+            
+            if (updates.length > 0) {
+                showMsg(updates.join(' and ') + ' updated.', 'success');
+                $('btnLoad').click();
+            } else if (errors.length > 0) {
+                showMsg(errors.join('; '), 'error');
+            } else {
+                showMsg('No changes', 'info');
+            }
         }
-        
-        if ($('kycOnboarding').value && $('kycOnboarding').value !== currentLead.kycOnboarding) {
-          const res = await api('updateKYCOnboardingBySalesRep', {
-            customerCode: code,
-            kycValue: $('kycOnboarding').value,
-            salesRepEmail: $('salesRepEmail').value.trim(),
-            password: $('salesRepPassword').value.trim(),
-            type: currentLead.type || 'hardware'
-          });
-          if (res.success) updates.push('KYC Onboarding');
-          else errors.push(res.message);
-        }
-        
-        if (updates.length > 0) {
-          showMsg(updates.join(' and ') + ' updated.', 'success');
-          $('btnLoad').click();
-        } else if (errors.length > 0) {
-          showMsg(errors.join('; '), 'error');
-        } else {
-          showMsg('No changes', 'info');
-        }
-      }
     });
 
     // ========== SALES REP DETAILS ==========
     $('salesRepSelect').addEventListener('change', async () => {
-      const email = $('salesRepSelect').value;
-      if (!email) {
-        $('repDetailsCard').classList.add('hidden');
-        currentRepData = null;
-        return;
-      }
-      
-      const res = await api('getSalesRepDetails', {
-        salesRepEmail: email,
-        password: $('supervisorPasswordField').value.trim()
-      });
-      
-      if (res.success) {
-        currentRepData = res.data;
-        $('repName').textContent = res.data.name;
-        $('repEmail').textContent = res.data.email;
-        $('repTotalLeads').textContent = res.data.totalLeads;
-        $('repConvertedCount').textContent = res.data.convertedCount;
-        $('repDetailsCard').classList.remove('hidden');
-        $('repLeadsTableSection').classList.add('hidden');
-      } else {
-        showMsg(res.message, 'error');
-        $('repDetailsCard').classList.add('hidden');
-      }
+        const email = $('salesRepSelect').value;
+        if (!email) {
+            $('repDetailsCard').classList.add('hidden');
+            currentRepData = null;
+            return;
+        }
+        
+        const res = await api('getSalesRepDetails', {
+            salesRepEmail: email,
+            password: $('supervisorPasswordField').value.trim()
+        });
+        
+        if (res.success) {
+            currentRepData = res.data;
+            $('repName').textContent = res.data.name;
+            $('repEmail').textContent = res.data.email;
+            $('repTotalLeads').textContent = res.data.totalLeads;
+            $('repConvertedCount').textContent = res.data.convertedCount;
+            $('repDetailsCard').classList.remove('hidden');
+            $('repLeadsTableSection').classList.add('hidden');
+        } else {
+            showMsg(res.message, 'error');
+            $('repDetailsCard').classList.add('hidden');
+        }
     });
 
     $('btnRepAllLeads').addEventListener('click', () => {
-      if (!currentRepData || currentRepData.generatedLeads.length === 0) {
-        showMsg('No leads', 'info');
-        return;
-      }
-      $('repLeadsTitle').textContent = 'All Leads (' + currentRepData.totalLeads + ')';
-      const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-      $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + currentRepData.generatedLeads.map(l => {
-        const isTerminated = l.kycOnboarding === 'Lead Terminated';
-        return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '"><td>' + l.customerCode + '</td><td>' + l.storeName + '</td><td>' + l.area + '</td><td>' + l.region + '</td><td>' + l.contactPerson + '</td><td>' + l.mobileNumber + '</td><td>' + l.qualification + '</td><td>' + l.approval + '</td><td>' + l.presentation + '</td><td>' + (isTerminated ? '<strong>🚫 ' + l.kycOnboarding + '</strong>' : l.kycOnboarding) + '</td></tr>';
-      }).join('') + '</tbody>';
-      $('repLeadsTableSection').classList.remove('hidden');
+        if (!currentRepData || currentRepData.generatedLeads.length === 0) {
+            showMsg('No leads', 'info');
+            return;
+        }
+        $('repLeadsTitle').textContent = 'All Leads (' + currentRepData.totalLeads + ')';
+        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + currentRepData.generatedLeads.map(l => {
+            const isTerminated = l.kycOnboarding === 'Lead Terminated';
+            return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '"><td>' + l.customerCode + '</td><td>' + l.storeName + '</td><td>' + l.area + '</td><td>' + l.region + '</td><td>' + l.contactPerson + '</td><td>' + l.mobileNumber + '</td><td>' + l.qualification + '</td><td>' + l.approval + '</td><td>' + l.presentation + '</td><td>' + (isTerminated ? '<strong>🚫 ' + l.kycOnboarding + '</strong>' : l.kycOnboarding) + '</td></tr>';
+        }).join('') + '</tbody>';
+        $('repLeadsTableSection').classList.remove('hidden');
     });
 
     $('btnRepConvertedLeads').addEventListener('click', () => {
-      if (!currentRepData || currentRepData.convertedLeads.length === 0) {
-        showMsg('No converted leads', 'info');
-        return;
-      }
-      $('repLeadsTitle').textContent = 'Converted (' + currentRepData.convertedCount + ')';
-      const headers = ['Code', 'Store Name', 'Area', 'Order 1', 'Order 2', 'Order 3', 'Total', 'Milestone'];
-      $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + currentRepData.convertedLeads.map(l => {
-        let bc = 'milestone-1';
-        if (l.completedOrders === 3) bc = 'milestone-3';
-        else if (l.completedOrders === 2) bc = 'milestone-2';
-        return '<tr><td>' + l.customerCode + '</td><td>' + l.storeName + '</td><td>' + l.area + '</td><td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) : '-') + '</td><td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) : '-') + '</td><td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) : '-') + '</td><td>' + l.totalQty.toFixed(2) + '</td><td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td></tr>';
-      }).join('') + '</tbody>';
-      $('repLeadsTableSection').classList.remove('hidden');
+        if (!currentRepData || currentRepData.convertedLeads.length === 0) {
+            showMsg('No converted leads', 'info');
+            return;
+        }
+        $('repLeadsTitle').textContent = 'Converted (' + currentRepData.convertedCount + ')';
+        const headers = ['Code', 'Store Name', 'Area', 'Order 1', 'Order 2', 'Order 3', 'Total', 'Milestone'];
+        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + currentRepData.convertedLeads.map(l => {
+            let bc = 'milestone-1';
+            if (l.completedOrders === 3) bc = 'milestone-3';
+            else if (l.completedOrders === 2) bc = 'milestone-2';
+            return '<tr><td>' + l.customerCode + '</td><td>' + l.storeName + '</td><td>' + l.area + '</td><td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) : '-') + '</td><td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) : '-') + '</td><td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) : '-') + '</td><td>' + l.totalQty.toFixed(2) + '</td><td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td></tr>';
+        }).join('') + '</tbody>';
+        $('repLeadsTableSection').classList.remove('hidden');
     });
 
     $('btnCloseRepLeads').addEventListener('click', () => {
-      $('repLeadsTableSection').classList.add('hidden');
+        $('repLeadsTableSection').classList.add('hidden');
     });
 
     // ========== DOWNLOAD HANDLERS ==========
     $('btnDownloadAllExcel').addEventListener('click', () => {
-      if (!currentRepData || !currentRepData.generatedLeads || currentRepData.generatedLeads.length === 0) {
-        showMsg('No leads to download.', 'error');
-        return;
-      }
-      const headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-      const data = currentRepData.generatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.qualification, l.approval, l.presentation, l.kycOnboarding]);
-      downloadExcel(data, headers, currentRepData.name + ' - All Leads');
-      showMsg('Excel downloaded!', 'success');
+        if (!currentRepData || !currentRepData.generatedLeads || currentRepData.generatedLeads.length === 0) {
+            showMsg('No leads to download.', 'error');
+            return;
+        }
+        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        const data = currentRepData.generatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.qualification, l.approval, l.presentation, l.kycOnboarding]);
+        downloadExcel(data, headers, currentRepData.name + ' - All Leads');
+        showMsg('Excel downloaded!', 'success');
     });
 
     $('btnDownloadAllPdf').addEventListener('click', () => {
-      if (!currentRepData || !currentRepData.generatedLeads || currentRepData.generatedLeads.length === 0) {
-        showMsg('No leads to download.', 'error');
-        return;
-      }
-      const headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-      const data = currentRepData.generatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.qualification, l.approval, l.presentation, l.kycOnboarding]);
-      downloadPdf(data, headers, currentRepData.name + ' - All Leads', 'All Generated Leads - ' + currentRepData.name);
-      showMsg('PDF downloaded!', 'success');
+        if (!currentRepData || !currentRepData.generatedLeads || currentRepData.generatedLeads.length === 0) {
+            showMsg('No leads to download.', 'error');
+            return;
+        }
+        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        const data = currentRepData.generatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.qualification, l.approval, l.presentation, l.kycOnboarding]);
+        downloadPdf(data, headers, currentRepData.name + ' - All Leads', 'All Generated Leads - ' + currentRepData.name);
+        showMsg('PDF downloaded!', 'success');
     });
 
     $('btnDownloadConvertedExcel').addEventListener('click', () => {
-      if (!currentRepData || !currentRepData.convertedLeads || currentRepData.convertedLeads.length === 0) {
-        showMsg('No converted leads.', 'error');
-        return;
-      }
-      const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
-      const data = currentRepData.convertedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.contactPerson, l.order1Qty > 0 ? l.order1Qty : '-', l.order2Qty > 0 ? l.order2Qty : '-', l.order3Qty > 0 ? l.order3Qty : '-', l.totalQty, l.milestone]);
-      downloadExcel(data, headers, currentRepData.name + ' - Converted Leads');
-      showMsg('Excel downloaded!', 'success');
+        if (!currentRepData || !currentRepData.convertedLeads || currentRepData.convertedLeads.length === 0) {
+            showMsg('No converted leads.', 'error');
+            return;
+        }
+        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
+        const data = currentRepData.convertedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.contactPerson, l.order1Qty > 0 ? l.order1Qty : '-', l.order2Qty > 0 ? l.order2Qty : '-', l.order3Qty > 0 ? l.order3Qty : '-', l.totalQty, l.milestone]);
+        downloadExcel(data, headers, currentRepData.name + ' - Converted Leads');
+        showMsg('Excel downloaded!', 'success');
     });
 
     $('btnDownloadConvertedPdf').addEventListener('click', () => {
-      if (!currentRepData || !currentRepData.convertedLeads || currentRepData.convertedLeads.length === 0) {
-        showMsg('No converted leads.', 'error');
-        return;
-      }
-      const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
-      const data = currentRepData.convertedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.contactPerson, l.order1Qty > 0 ? l.order1Qty : '-', l.order2Qty > 0 ? l.order2Qty : '-', l.order3Qty > 0 ? l.order3Qty : '-', l.totalQty, l.milestone]);
-      downloadPdf(data, headers, currentRepData.name + ' - Converted Leads', 'Converted Leads - ' + currentRepData.name);
-      showMsg('PDF downloaded!', 'success');
+        if (!currentRepData || !currentRepData.convertedLeads || currentRepData.convertedLeads.length === 0) {
+            showMsg('No converted leads.', 'error');
+            return;
+        }
+        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
+        const data = currentRepData.convertedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.contactPerson, l.order1Qty > 0 ? l.order1Qty : '-', l.order2Qty > 0 ? l.order2Qty : '-', l.order3Qty > 0 ? l.order3Qty : '-', l.totalQty, l.milestone]);
+        downloadPdf(data, headers, currentRepData.name + ' - Converted Leads', 'Converted Leads - ' + currentRepData.name);
+        showMsg('PDF downloaded!', 'success');
     });
 
     $('btnDownloadTerminatedExcel').addEventListener('click', () => {
-      if (!currentTerminatedLeads || currentTerminatedLeads.length === 0) {
-        showMsg('No terminated leads to download.', 'error');
-        return;
-      }
-      const isHomecare = currentTerminatedLeads.length > 0 && currentTerminatedLeads[0].type === 'homecare';
-      let headers, data;
-      if (isHomecare) {
-        headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Selling Steelwool', 'Comments', 'Qualification', 'Approval', 'Presentation', 'KYC', 'Sales Rep Email'];
-        data = currentTerminatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.sellingSwool || '', l.comments || '', l.qualification, l.approval, l.presentation, l.kycOnboarding, l.salesRepEmail]);
-      } else {
-        headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Qualification', 'Approval', 'Presentation', 'KYC', 'Sales Rep Email', 'Feedback'];
-        data = currentTerminatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.outletCategory, l.brandsStocked, l.purchaseFrequency, l.mainSupplier, l.distributorType, l.weldplusAwareness, l.qualification, l.approval, l.presentation, l.kycOnboarding, l.salesRepEmail, l.additionalFeedback]);
-      }
-      downloadExcel(data, headers, 'Terminated Leads - ' + new Date().toLocaleDateString().replace(/\//g, '-'));
-      showMsg('Terminated leads Excel downloaded!', 'success');
+        if (!currentTerminatedLeads || currentTerminatedLeads.length === 0) {
+            showMsg('No terminated leads to download.', 'error');
+            return;
+        }
+        const isHomecare = currentTerminatedLeads.length > 0 && currentTerminatedLeads[0].type === 'homecare';
+        let headers, data;
+        if (isHomecare) {
+            headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Selling Steelwool', 'Comments', 'Qualification', 'Approval', 'Presentation', 'KYC', 'Sales Rep Email'];
+            data = currentTerminatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.sellingSwool || '', l.comments || '', l.qualification, l.approval, l.presentation, l.kycOnboarding, l.salesRepEmail]);
+        } else {
+            headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Qualification', 'Approval', 'Presentation', 'KYC', 'Sales Rep Email', 'Feedback'];
+            data = currentTerminatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.outletCategory, l.brandsStocked, l.purchaseFrequency, l.mainSupplier, l.distributorType, l.weldplusAwareness, l.qualification, l.approval, l.presentation, l.kycOnboarding, l.salesRepEmail, l.additionalFeedback]);
+        }
+        downloadExcel(data, headers, 'Terminated Leads - ' + new Date().toLocaleDateString().replace(/\//g, '-'));
+        showMsg('Terminated leads Excel downloaded!', 'success');
     });
 
     // ========== ROLE CHANGE ==========
     $('roleSelect').addEventListener('change', () => {
-      currentLead = null;
-      $('detailsSection').classList.add('hidden');
-      $('leadsSection').classList.add('hidden');
-      $('ordersSection').classList.add('hidden');
-      $('leadFormSection').classList.add('hidden');
-      $('supervisorDashboard').classList.add('hidden');
-      $('salesRepDetailsSection').classList.add('hidden');
-      $('qualification').value = '';
-      $('presentation').value = '';
-      $('kycOnboarding').value = '';
-      $('qualificationOther').value = '';
-      $('presentationOther').value = '';
-      $('qualificationOtherBox').classList.add('hidden');
-      $('presentationOtherBox').classList.add('hidden');
-      $('salesRepLoginMsg').style.display = 'none';
-      $('supervisorLoginMsg').style.display = 'none';
-      
-      if ($('roleSelect').value === 'SalesRep') {
-        isSalesRepLoggedIn = false;
-        salesRepName = '';
-        $('salesRepEmail').value = '';
-        $('salesRepPassword').value = '';
-        $('salesRepEmail').disabled = false;
-        $('salesRepPassword').disabled = false;
-        $('btnSalesRepLogin').disabled = false;
-        $('btnSalesRepLogin').textContent = 'Login';
-        $('btnSalesRepLogin').style.background = '';
-        if ($('loginBadge')) {
-          $('loginBadge').classList.remove('show');
-          $('loginBadgeText').textContent = '';
+        currentLead = null;
+        $('detailsSection').classList.add('hidden');
+        $('leadsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
+        $('supervisorDashboard').classList.add('hidden');
+        $('salesRepDetailsSection').classList.add('hidden');
+        $('qualification').value = '';
+        $('presentation').value = '';
+        $('kycOnboarding').value = '';
+        $('qualificationOther').value = '';
+        $('presentationOther').value = '';
+        $('qualificationOtherBox').classList.add('hidden');
+        $('presentationOtherBox').classList.add('hidden');
+        $('salesRepLoginMsg').style.display = 'none';
+        $('supervisorLoginMsg').style.display = 'none';
+        
+        if ($('roleSelect').value === 'SalesRep') {
+            isSalesRepLoggedIn = false;
+            salesRepName = '';
+            $('salesRepEmail').value = '';
+            $('salesRepPassword').value = '';
+            $('salesRepEmail').disabled = false;
+            $('salesRepPassword').disabled = false;
+            $('btnSalesRepLogin').disabled = false;
+            $('btnSalesRepLogin').textContent = 'Login';
+            $('btnSalesRepLogin').style.background = '';
+            if ($('loginBadge')) {
+                $('loginBadge').classList.remove('show');
+                $('loginBadgeText').textContent = '';
+            }
         }
-      }
-      
-      if ($('roleSelect').value !== 'Supervisor') {
-        isSupervisorLoggedIn = false;
-        supervisorType = '';
-        supervisorEmail = '';
-        $('supervisorEmail').value = '';
-        $('supervisorPasswordField').value = '';
-        $('supervisorEmail').disabled = false;
-        $('supervisorPasswordField').disabled = false;
-        $('btnSupervisorLogin').disabled = false;
-        $('btnSupervisorLogin').textContent = 'Login';
-        $('btnSupervisorLogin').style.background = '';
-        if ($('loginBadge')) {
-          $('loginBadge').classList.remove('show');
-          $('loginBadgeText').textContent = '';
+        
+        if ($('roleSelect').value !== 'Supervisor') {
+            isSupervisorLoggedIn = false;
+            supervisorType = '';
+            supervisorEmail = '';
+            $('supervisorEmail').value = '';
+            $('supervisorPasswordField').value = '';
+            $('supervisorEmail').disabled = false;
+            $('supervisorPasswordField').disabled = false;
+            $('btnSupervisorLogin').disabled = false;
+            $('btnSupervisorLogin').textContent = 'Login';
+            $('btnSupervisorLogin').style.background = '';
+            if ($('loginBadge')) {
+                $('loginBadge').classList.remove('show');
+                $('loginBadgeText').textContent = '';
+            }
         }
-      }
-      
-      currentTerminatedLeads = [];
-      $('btnDownloadTerminatedExcel').classList.add('hidden');
-      updateUI();
+        
+        currentTerminatedLeads = [];
+        $('btnDownloadTerminatedExcel').classList.add('hidden');
+        updateUI();
     });
 
     // ========== INITIALIZATION ==========
@@ -1421,19 +1509,18 @@
     
     // Service Worker registration for GitHub Pages
     if ('serviceWorker' in navigator) {
-      // Use a relative path that works on GitHub Pages
-      const swUrl = window.location.pathname.includes('/SWAL-Integrated-LeadGeneration/') 
-        ? 'service-worker.js' 
-        : '/service-worker.js';
-      
-      navigator.serviceWorker.register(swUrl)
-        .then(registration => {
-          console.log('Service Worker registered successfully:', registration);
-        })
-        .catch(error => {
-          console.log('Service Worker registration failed:', error);
-        });
+        const swUrl = window.location.pathname.includes('/SWAL-Integrated-LeadGeneration/') 
+            ? 'service-worker.js' 
+            : '/service-worker.js';
+        
+        navigator.serviceWorker.register(swUrl)
+            .then(registration => {
+                console.log('Service Worker registered successfully:', registration);
+            })
+            .catch(error => {
+                console.log('Service Worker registration failed:', error);
+            });
     }
-  </script>
-</body>
+</script>
+ </body>
 </html>
