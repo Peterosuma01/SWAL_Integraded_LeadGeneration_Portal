@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#667eea">
+  <title>Offline — Steelwool Integrated PWA</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff}
+    .card{background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);border-radius:16px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:480px;width:90%;text-align:center;border:1px solid rgba(255,255,255,0.2)}
+    .icon{font-size:64px;margin-bottom:16px;display:block}
+    h1{margin:0 0 8px 0;font-size:24px;font-weight:700}
+    p{margin:8px 0;line-height:1.6;opacity:0.9}
+    .badge{display:inline-block;background:rgba(255,255,255,0.2);padding:4px 12px;border-radius:20px;font-size:12px;margin-top:8px}
+    .btn{margin-top:16px;padding:12px 32px;background:#fff;color:#667eea;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.3s}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.2)}
+    .features{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left}
+    .feature{background:rgba(255,255,255,0.1);padding:8px 12px;border-radius:6px;font-size:12px}
+    @media(max-width:480px){.features{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="icon">📡</span>
+    <h1>You're Offline</h1>
+    <p>This integrated lead management system requires network access to load data from Google Sheets.</p>
+    <p style="font-size:14px;margin-top:8px">Please reconnect to the internet and refresh the page.</p>
+    <div class="badge">🔄 Hardware &bull; 🏠 Homecare</div>
+    <button class="btn" onclick="location.reload()">🔄 Try Again</button>
+    <div class="features">
+      <div class="feature">🔩 Hardware Leads</div>
+      <div class="feature">🏠 Homecare Leads</div>
+      <div class="feature">👤 Sales Rep Login</div>
+      <div class="feature">👔 Supervisor Dashboard</div>
+    </div>
+  </div>
+</body>
+</html>
