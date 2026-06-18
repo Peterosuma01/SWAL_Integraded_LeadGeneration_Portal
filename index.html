@@ -41,6 +41,7 @@
     .btn-dark{background:linear-gradient(135deg,#374151 0%,#1f2937 100%)}
     .btn-amber{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#1f2937}
     .btn-crimson{background:linear-gradient(135deg,#be123c 0%,#9f1239 100%)}
+    .btn-pink{background:linear-gradient(135deg,#ec4899 0%,#db2777 100%)}
     .message{padding:12px;border-radius:8px;margin-top:14px;display:none;font-size:13px}
     .message.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;display:block}
     .message.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;display:block}
@@ -117,6 +118,9 @@
     .price-table td:first-child{text-align:left;font-weight:500;background:#fafafa}
     .price-table input[type="number"]{width:100%;padding:5px 6px;border:1px solid #e1e8ed;border-radius:4px;font-size:12px;text-align:center;min-height:unset}
     .price-table input[type="number"]:focus{outline:none;border-color:#667eea}
+    .type-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:#fff}
+    .type-badge.hardware{background:#3b82f6}
+    .type-badge.homecare{background:#10b981}
     @media(max-width:640px){
       .btn-row{flex-direction:column}.btn.small{width:100%}.container{padding:16px;margin:10px}
       .field-inline{flex-direction:column}.field-inline>input{width:100%;min-height:50px;font-size:16px}
@@ -187,7 +191,10 @@
       <div id="repDetailsCard" class="rep-details-card hidden">
         <div class="rep-header"><div><div class="rep-name" id="repName"></div><div class="rep-email" id="repEmail"></div></div></div>
         <div class="rep-stats"><div class="rep-stat"><div class="rep-stat-value" id="repTotalLeads">0</div><div class="rep-stat-label">Generated Leads</div></div><div class="rep-stat"><div class="rep-stat-value" id="repConvertedCount">0</div><div class="rep-stat-label">Converted Leads</div></div></div>
-        <div class="btn-row" style="margin-bottom:4px"><button class="btn small btn-blue" id="btnRepAllLeads">📋 All Leads</button><button class="btn small btn-orange" id="btnRepConvertedLeads">📦 Converted</button></div>
+        <div class="btn-row" style="margin-bottom:4px">
+          <button class="btn small btn-blue" id="btnRepAllLeads">📋 All Leads</button>
+          <button class="btn small btn-orange" id="btnRepConvertedLeads">📦 Converted</button>
+        </div>
         <div class="download-row"><span style="font-size:12px;font-weight:600;color:#333;margin-right:4px;align-self:center">⬇️ All Leads:</span><button class="btn small btn-teal" id="btnDownloadAllExcel">📗 Excel</button><button class="btn small btn-red" id="btnDownloadAllPdf">📕 PDF</button></div>
         <div class="download-row"><span style="font-size:12px;font-weight:600;color:#333;margin-right:4px;align-self:center">⬇️ Converted:</span><button class="btn small btn-teal" id="btnDownloadConvertedExcel">📗 Excel</button><button class="btn small btn-red" id="btnDownloadConvertedPdf">📕 PDF</button></div>
         <div id="repLeadsTableSection" class="hidden"><div class="section-title" id="repLeadsTitle" style="margin-top:8px">Leads</div><div class="table-wrap"><table class="leads-table" id="repLeadsTable"></table></div><button class="btn small btn-gray" id="btnCloseRepLeads" style="margin-top:8px">Close</button></div>
@@ -216,7 +223,6 @@
       <div id="actionButtons" class="hidden btn-row" style="margin-bottom:14px">
         <button class="btn small btn-blue" id="btnViewLeads">View Generated Leads</button>
         <button class="btn small btn-blue" id="btnViewOrders">View Orders Placed</button>
-        <button class="btn small btn-blue hidden" id="btnViewQualified">View Qualified Leads</button>
         <button class="btn small btn-teal hidden" id="btnPlaceOrder">Place Order</button>
         <button class="btn small btn-green hidden" id="btnGenerateLead">➕ Generate New Lead</button>
       </div>
@@ -364,7 +370,8 @@
   </div>
 
   <div id="passwordModal" class="hidden"><div class="modal-overlay"><div class="modal"><h3>Supervisor Password</h3><input type="password" id="supervisorPasswordModal" placeholder="Enter password" style="width:100%;padding:10px;border:1px solid #e1e8ed;border-radius:6px"><div id="passwordHint" class="hint"></div><div class="modal-actions"><button class="btn small btn-gray" id="btnCancelPassword">Cancel</button><button class="btn small" id="btnConfirmPassword">Submit</button></div></div></div></div>
-<script>
+
+  <script>
     // ============================================================
     // INTEGRATED FRONTEND - Hardware & Homecare
     // ============================================================
@@ -387,6 +394,7 @@
     let dashboardData = null;
     let currentRepData = null;
     let currentTerminatedLeads = [];
+    let salesRepApiType = 'hardware'; // Track which API the sales rep uses
 
     const $ = id => document.getElementById(id);
 
@@ -499,11 +507,11 @@
             $('actionButtons').classList.add('hidden');
         }
         
-        $('btnViewLeads').classList.toggle('hidden', role !== 'Supervisor');
-        $('btnViewOrders').classList.toggle('hidden', role !== 'Supervisor');
-        $('btnViewQualified').classList.toggle('hidden', role !== 'SalesRep');
-        $('btnPlaceOrder').classList.toggle('hidden', role !== 'SalesRep');
-        $('btnGenerateLead').classList.toggle('hidden', role !== 'SalesRep');
+        // Sales Rep buttons visibility
+        $('btnViewLeads').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
+        $('btnViewOrders').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
+        $('btnPlaceOrder').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
+        $('btnGenerateLead').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
         
         $('approvalButtons').classList.toggle('hidden', role !== 'Supervisor' || !isSupervisorLoggedIn);
         $('assignSalesRep').classList.toggle('hidden', role !== 'Supervisor' || !isSupervisorLoggedIn);
@@ -601,6 +609,7 @@
         }
         
         const apiType = getApiTypeForEmail(email);
+        salesRepApiType = apiType;
         setApiUrl(apiType);
         
         const res = await api('validateSalesRepLogin', {
@@ -634,6 +643,7 @@
             if (res2.success) {
                 isSalesRepLoggedIn = true;
                 salesRepName = res2.name;
+                salesRepApiType = otherType;
                 $('salesRepLoginMsg').style.display = 'none';
                 $('btnSalesRepLogin').textContent = 'Logged In ✓';
                 $('btnSalesRepLogin').disabled = true;
@@ -686,8 +696,63 @@
         }
     }
 
-    // ========== VIEW LEADS FUNCTIONS ==========
-    async function loadLeads(action, title, showTerminatedDownload = false) {
+    // ========== SALES REP VIEW LEADS ==========
+    // Sales Rep: View Generated Leads (segregated by type)
+    $('btnViewLeads').addEventListener('click', async () => {
+        if (!isSalesRepLoggedIn) {
+            showMsg('Please login first', 'error');
+            return;
+        }
+        
+        // Use the sales rep's API type
+        setApiUrl(salesRepApiType);
+        
+        const res = await api('getQualifiedLeadsBySalesRep', {
+            salesRepEmail: $('salesRepEmail').value.trim(),
+            salesRepPassword: $('salesRepPassword').value.trim(),
+            type: salesRepApiType
+        });
+        
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            return;
+        }
+        
+        if (res.data.length === 0) {
+            showMsg('No leads found for this sales representative', 'info');
+            return;
+        }
+        
+        // Add type to each lead for display
+        const leadsWithType = res.data.map(l => ({ ...l, type: salesRepApiType }));
+        renderLeadsTable(leadsWithType, '📋 My Generated Leads (' + salesRepApiType.toUpperCase() + ')', false);
+    });
+
+    // Sales Rep: View Orders Placed
+    $('btnViewOrders').addEventListener('click', async () => {
+        if (!isSalesRepLoggedIn) {
+            showMsg('Please login first', 'error');
+            return;
+        }
+        
+        // Use the sales rep's API type
+        setApiUrl(salesRepApiType);
+        
+        const res = await api('getOrdersSummary', { type: salesRepApiType });
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            return;
+        }
+        if (res.data.length === 0) {
+            showMsg('No orders yet', 'info');
+            return;
+        }
+        renderOrdersTable(res.data);
+    });
+
+    // ========== SUPERVISOR VIEW LEADS ==========
+    async function loadSupervisorLeads(action, title, showTerminatedDownload = false) {
+        // Supervisor already has the correct API set from login
         const res = await api(action, {
             email: supervisorEmail,
             password: $('supervisorPasswordField').value.trim()
@@ -713,7 +778,7 @@
     });
 
     $('btnViewPendingLeads').addEventListener('click', () => {
-        loadLeads('getPendingLeads', '⏳ Pending Approval', false);
+        loadSupervisorLeads('getPendingLeads', '⏳ Pending Approval', false);
     });
 
     $('btnViewApprovedLeads').addEventListener('click', () => {
@@ -729,7 +794,7 @@
     });
 
     $('btnViewTerminatedLeads').addEventListener('click', () => {
-        loadLeads('getTerminatedLeads', '🚫 Terminated Leads', true);
+        loadSupervisorLeads('getTerminatedLeads', '🚫 Terminated Leads', true);
     });
 
     $('btnViewAllLeads').addEventListener('click', async () => {
@@ -773,14 +838,29 @@
         let headers, rowMapper;
         
         if (isHomecare) {
-            headers = ['Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Code'];
-            rowMapper = l => [l.region || '', l.area || '', l.location || '', l.storeName || '', l.contactPerson || '', l.mobileNumber || '', l.sellingSwool || '', l.sokoniSource || '', l.otherBrands || '', l.monthlyVolume || '', l.comments || '', l.customerCode || ''];
+            headers = ['Type', 'Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Code'];
+            rowMapper = l => [
+                '<span class="type-badge homecare">🏠 Homecare</span>',
+                l.region || '', l.area || '', l.location || '', l.storeName || '', 
+                l.contactPerson || '', l.mobileNumber || '', l.sellingSwool || '', 
+                l.sokoniSource || '', l.otherBrands || '', l.monthlyVolume || '', 
+                l.comments || '', l.customerCode || ''
+            ];
         } else {
-            headers = ['Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Feedback', 'Code'];
-            rowMapper = l => [l.region || '', l.area || '', l.location || '', l.storeName || '', l.contactPerson || '', l.mobileNumber || '', l.outletCategory || '', l.brandsStocked || '', l.purchaseFrequency || '', l.mainSupplier || '', l.distributorType || '', l.weldplusAwareness || '', l.additionalFeedback || '', l.customerCode || ''];
+            headers = ['Type', 'Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Feedback', 'Code'];
+            rowMapper = l => [
+                '<span class="type-badge hardware">🔩 Hardware</span>',
+                l.region || '', l.area || '', l.location || '', l.storeName || '', 
+                l.contactPerson || '', l.mobileNumber || '', l.outletCategory || '', 
+                l.brandsStocked || '', l.purchaseFrequency || '', l.mainSupplier || '', 
+                l.distributorType || '', l.weldplusAwareness || '', l.additionalFeedback || '', 
+                l.customerCode || ''
+            ];
         }
         
-        $('leadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + leads.map(l => '<tr>' + rowMapper(l).map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>').join('') + '</tbody>';
+        $('leadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
+            leads.map(l => '<tr>' + rowMapper(l).map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>').join('') + 
+            '</tbody>';
         
         $('leadsSection').classList.remove('hidden');
         $('detailsSection').classList.add('hidden');
@@ -791,7 +871,9 @@
     function renderOrdersTable(orders) {
         $('leadsTitle').textContent = '📦 Orders Summary';
         $('btnDownloadTerminatedExcel').classList.add('hidden');
-        $('leadsTable').innerHTML = '<thead><tr><th>Customer Code</th><th>Orders</th><th>Total Kgs</th><th>Avg Kgs</th></tr></thead><tbody>' + orders.map(o => '<tr><td>' + o.customerCode + '</td><td>' + o.numberOfOrders + '</td><td>' + o.totalQuantity.toFixed(2) + '</td><td>' + o.averageQuantity.toFixed(2) + '</td></tr>').join('') + '</tbody>';
+        $('leadsTable').innerHTML = '<thead><tr><th>Customer Code</th><th>Orders</th><th>Total Kgs</th><th>Avg Kgs</th></tr></thead><tbody>' + 
+            orders.map(o => '<tr><td>' + o.customerCode + '</td><td>' + o.numberOfOrders + '</td><td>' + o.totalQuantity.toFixed(2) + '</td><td>' + o.averageQuantity.toFixed(2) + '</td></tr>').join('') + 
+            '</tbody>';
         $('leadsSection').classList.remove('hidden');
         $('detailsSection').classList.add('hidden');
         $('ordersSection').classList.add('hidden');
@@ -863,9 +945,7 @@
         return result;
     }
 
-    // ============================================================
-    // UPDATED: LEAD FORM SUBMISSION WITH DYNAMIC API SWITCHING
-    // ============================================================
+    // ========== LEAD FORM SUBMISSION ==========
     $('btnSubmitLeadForm').addEventListener('click', async () => {
         const leadType = document.querySelector('input[name="leadType"]:checked');
         if (!leadType) {
@@ -875,9 +955,7 @@
         
         const isHomecare = leadType.value === 'homecare';
         
-        // ============================================
-        // CRITICAL: Switch API based on lead type
-        // ============================================
+        // Switch API based on lead type
         const targetApiType = isHomecare ? 'homecare' : 'hardware';
         console.log('Submitting lead to:', targetApiType);
         setApiUrl(targetApiType);
@@ -966,7 +1044,6 @@
             };
         }
         
-        // Submit to the correct API
         const res = await api('submitLeadForm', payload);
         
         if (res.success) {
@@ -1003,7 +1080,7 @@
             $('lfAdditionalFeedbackHomecare').value = '';
             $('leadFormSection').classList.add('hidden');
             
-            // Reset API back to user's type after submission
+            // Reset API back to user's type
             if (isSalesRepLoggedIn && $('salesRepEmail').value) {
                 const userApiType = getApiTypeForEmail($('salesRepEmail').value.trim());
                 setApiUrl(userApiType);
@@ -1024,12 +1101,14 @@
         if (role === 'SalesRep' && !isSalesRepLoggedIn) { showMsg('Please login first', 'error'); return; }
         if (role === 'Supervisor' && !isSupervisorLoggedIn) { showMsg('Please login as supervisor first', 'error'); return; }
         
+        const type = role === 'Supervisor' ? supervisorType : salesRepApiType;
+        
         const res = await api('getLeadStatus', {
             customerCode: code,
             role: role,
             salesRepEmail: $('salesRepEmail').value.trim(),
             salesRepPassword: $('salesRepPassword').value.trim(),
-            type: role === 'Supervisor' ? supervisorType : (isSalesRepLoggedIn ? 'hardware' : 'hardware')
+            type: type
         });
         
         if (!res.success) {
@@ -1080,6 +1159,7 @@
         let fields;
         if (d.type === 'homecare') {
             fields = [
+                ['Type', '🏠 Homecare'],
                 ['Region', d.region],
                 ['Area', d.area],
                 ['Location', d.location],
@@ -1094,6 +1174,7 @@
             ];
         } else {
             fields = [
+                ['Type', '🔩 Hardware'],
                 ['Region', d.region],
                 ['Area', d.area],
                 ['Location', d.location],
@@ -1151,7 +1232,7 @@
             customerCode: code,
             salesRepEmail: $('salesRepEmail').value.trim(),
             salesRepPassword: $('salesRepPassword').value.trim(),
-            type: 'hardware'
+            type: salesRepApiType
         });
         
         if (!res.success) {
@@ -1212,7 +1293,7 @@
             quantity: qty,
             salesRepEmail: $('salesRepEmail').value.trim(),
             salesRepPassword: $('salesRepPassword').value.trim(),
-            type: 'hardware'
+            type: salesRepApiType
         });
         
         if (res.success) {
@@ -1307,7 +1388,7 @@
                         presentationValue: pv,
                         salesRepEmail: $('salesRepEmail').value.trim(),
                         password: $('salesRepPassword').value.trim(),
-                        type: currentLead.type || 'hardware'
+                        type: currentLead.type || salesRepApiType
                     });
                     if (res.success) updates.push('Presentation');
                     else errors.push(res.message);
@@ -1320,7 +1401,7 @@
                     kycValue: $('kycOnboarding').value,
                     salesRepEmail: $('salesRepEmail').value.trim(),
                     password: $('salesRepPassword').value.trim(),
-                    type: currentLead.type || 'hardware'
+                    type: currentLead.type || salesRepApiType
                 });
                 if (res.success) updates.push('KYC Onboarding');
                 else errors.push(res.message);
@@ -1337,7 +1418,7 @@
         }
     });
 
-    // ========== SALES REP DETAILS ==========
+    // ========== SALES REP DETAILS (Supervisor View) ==========
     $('salesRepSelect').addEventListener('change', async () => {
         const email = $('salesRepSelect').value;
         if (!email) {
@@ -1345,6 +1426,10 @@
             currentRepData = null;
             return;
         }
+        
+        // Determine which API to use for this rep
+        const repApiType = getApiTypeForEmail(email);
+        setApiUrl(repApiType);
         
         const res = await api('getSalesRepDetails', {
             salesRepEmail: email,
@@ -1354,44 +1439,107 @@
         if (res.success) {
             currentRepData = res.data;
             $('repName').textContent = res.data.name;
-            $('repEmail').textContent = res.data.email;
+            $('repEmail').textContent = res.data.email + ' (' + repApiType.toUpperCase() + ')';
             $('repTotalLeads').textContent = res.data.totalLeads;
             $('repConvertedCount').textContent = res.data.convertedCount;
             $('repDetailsCard').classList.remove('hidden');
             $('repLeadsTableSection').classList.add('hidden');
+            
+            // Store the rep's API type for download functions
+            currentRepData.apiType = repApiType;
         } else {
             showMsg(res.message, 'error');
             $('repDetailsCard').classList.add('hidden');
         }
     });
 
-    $('btnRepAllLeads').addEventListener('click', () => {
-        if (!currentRepData || currentRepData.generatedLeads.length === 0) {
-            showMsg('No leads', 'info');
+    // FIXED: btnRepAllLeads - uses the rep's API type
+    $('btnRepAllLeads').addEventListener('click', async () => {
+        if (!currentRepData) {
+            showMsg('Select a sales representative first', 'error');
             return;
         }
+        
+        // Use the rep's API type
+        const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
+        setApiUrl(repApiType);
+        
+        // Fetch fresh data for this rep
+        const res = await api('getSalesRepDetails', {
+            salesRepEmail: currentRepData.email,
+            password: $('supervisorPasswordField').value.trim()
+        });
+        
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            return;
+        }
+        
+        currentRepData = res.data;
+        currentRepData.apiType = repApiType;
+        
+        if (currentRepData.generatedLeads.length === 0) {
+            showMsg('No leads for this rep', 'info');
+            return;
+        }
+        
         $('repLeadsTitle').textContent = 'All Leads (' + currentRepData.totalLeads + ')';
-        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + currentRepData.generatedLeads.map(l => {
-            const isTerminated = l.kycOnboarding === 'Lead Terminated';
-            return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '"><td>' + l.customerCode + '</td><td>' + l.storeName + '</td><td>' + l.area + '</td><td>' + l.region + '</td><td>' + l.contactPerson + '</td><td>' + l.mobileNumber + '</td><td>' + l.qualification + '</td><td>' + l.approval + '</td><td>' + l.presentation + '</td><td>' + (isTerminated ? '<strong>🚫 ' + l.kycOnboarding + '</strong>' : l.kycOnboarding) + '</td></tr>';
-        }).join('') + '</tbody>';
+        const headers = ['Type', 'Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
+            currentRepData.generatedLeads.map(l => {
+                const isTerminated = l.kycOnboarding === 'Lead Terminated';
+                const typeBadge = repApiType === 'homecare' ? 
+                    '<span class="type-badge homecare">🏠 Homecare</span>' : 
+                    '<span class="type-badge hardware">🔩 Hardware</span>';
+                return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '"><td>' + typeBadge + '</td><td>' + l.customerCode + '</td><td>' + l.storeName + '</td><td>' + l.area + '</td><td>' + l.region + '</td><td>' + l.contactPerson + '</td><td>' + l.mobileNumber + '</td><td>' + l.qualification + '</td><td>' + l.approval + '</td><td>' + l.presentation + '</td><td>' + (isTerminated ? '<strong>🚫 ' + l.kycOnboarding + '</strong>' : l.kycOnboarding) + '</td></tr>';
+            }).join('') + 
+            '</tbody>';
         $('repLeadsTableSection').classList.remove('hidden');
     });
 
-    $('btnRepConvertedLeads').addEventListener('click', () => {
-        if (!currentRepData || currentRepData.convertedLeads.length === 0) {
-            showMsg('No converted leads', 'info');
+    // FIXED: btnRepConvertedLeads - uses the rep's API type
+    $('btnRepConvertedLeads').addEventListener('click', async () => {
+        if (!currentRepData) {
+            showMsg('Select a sales representative first', 'error');
             return;
         }
+        
+        // Use the rep's API type
+        const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
+        setApiUrl(repApiType);
+        
+        // Fetch fresh data for this rep
+        const res = await api('getSalesRepDetails', {
+            salesRepEmail: currentRepData.email,
+            password: $('supervisorPasswordField').value.trim()
+        });
+        
+        if (!res.success) {
+            showMsg(res.message, 'error');
+            return;
+        }
+        
+        currentRepData = res.data;
+        currentRepData.apiType = repApiType;
+        
+        if (currentRepData.convertedLeads.length === 0) {
+            showMsg('No converted leads for this rep', 'info');
+            return;
+        }
+        
         $('repLeadsTitle').textContent = 'Converted (' + currentRepData.convertedCount + ')';
-        const headers = ['Code', 'Store Name', 'Area', 'Order 1', 'Order 2', 'Order 3', 'Total', 'Milestone'];
-        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + currentRepData.convertedLeads.map(l => {
-            let bc = 'milestone-1';
-            if (l.completedOrders === 3) bc = 'milestone-3';
-            else if (l.completedOrders === 2) bc = 'milestone-2';
-            return '<tr><td>' + l.customerCode + '</td><td>' + l.storeName + '</td><td>' + l.area + '</td><td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) : '-') + '</td><td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) : '-') + '</td><td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) : '-') + '</td><td>' + l.totalQty.toFixed(2) + '</td><td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td></tr>';
-        }).join('') + '</tbody>';
+        const headers = ['Type', 'Code', 'Store Name', 'Area', 'Order 1', 'Order 2', 'Order 3', 'Total', 'Milestone'];
+        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
+            currentRepData.convertedLeads.map(l => {
+                let bc = 'milestone-1';
+                if (l.completedOrders === 3) bc = 'milestone-3';
+                else if (l.completedOrders === 2) bc = 'milestone-2';
+                const typeBadge = repApiType === 'homecare' ? 
+                    '<span class="type-badge homecare">🏠 Homecare</span>' : 
+                    '<span class="type-badge hardware">🔩 Hardware</span>';
+                return '<tr><td>' + typeBadge + '</td><td>' + l.customerCode + '</td><td>' + l.storeName + '</td><td>' + l.area + '</td><td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) : '-') + '</td><td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) : '-') + '</td><td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) : '-') + '</td><td>' + l.totalQty.toFixed(2) + '</td><td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td></tr>';
+            }).join('') + 
+            '</tbody>';
         $('repLeadsTableSection').classList.remove('hidden');
     });
 
@@ -1405,8 +1553,14 @@
             showMsg('No leads to download.', 'error');
             return;
         }
-        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-        const data = currentRepData.generatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.qualification, l.approval, l.presentation, l.kycOnboarding]);
+        const typeLabel = currentRepData.apiType === 'homecare' ? 'Homecare' : 'Hardware';
+        const headers = ['Type', 'Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        const data = currentRepData.generatedLeads.map(l => [
+            typeLabel,
+            l.customerCode, l.storeName, l.area, l.region, l.location, 
+            l.contactPerson, l.mobileNumber, l.qualification, l.approval, 
+            l.presentation, l.kycOnboarding
+        ]);
         downloadExcel(data, headers, currentRepData.name + ' - All Leads');
         showMsg('Excel downloaded!', 'success');
     });
@@ -1416,8 +1570,14 @@
             showMsg('No leads to download.', 'error');
             return;
         }
-        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-        const data = currentRepData.generatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.qualification, l.approval, l.presentation, l.kycOnboarding]);
+        const typeLabel = currentRepData.apiType === 'homecare' ? 'Homecare' : 'Hardware';
+        const headers = ['Type', 'Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        const data = currentRepData.generatedLeads.map(l => [
+            typeLabel,
+            l.customerCode, l.storeName, l.area, l.region, l.location, 
+            l.contactPerson, l.mobileNumber, l.qualification, l.approval, 
+            l.presentation, l.kycOnboarding
+        ]);
         downloadPdf(data, headers, currentRepData.name + ' - All Leads', 'All Generated Leads - ' + currentRepData.name);
         showMsg('PDF downloaded!', 'success');
     });
@@ -1427,8 +1587,16 @@
             showMsg('No converted leads.', 'error');
             return;
         }
-        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
-        const data = currentRepData.convertedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.contactPerson, l.order1Qty > 0 ? l.order1Qty : '-', l.order2Qty > 0 ? l.order2Qty : '-', l.order3Qty > 0 ? l.order3Qty : '-', l.totalQty, l.milestone]);
+        const typeLabel = currentRepData.apiType === 'homecare' ? 'Homecare' : 'Hardware';
+        const headers = ['Type', 'Code', 'Store Name', 'Area', 'Region', 'Contact', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
+        const data = currentRepData.convertedLeads.map(l => [
+            typeLabel,
+            l.customerCode, l.storeName, l.area, l.region, l.contactPerson,
+            l.order1Qty > 0 ? l.order1Qty : '-',
+            l.order2Qty > 0 ? l.order2Qty : '-',
+            l.order3Qty > 0 ? l.order3Qty : '-',
+            l.totalQty, l.milestone
+        ]);
         downloadExcel(data, headers, currentRepData.name + ' - Converted Leads');
         showMsg('Excel downloaded!', 'success');
     });
@@ -1438,8 +1606,16 @@
             showMsg('No converted leads.', 'error');
             return;
         }
-        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
-        const data = currentRepData.convertedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.contactPerson, l.order1Qty > 0 ? l.order1Qty : '-', l.order2Qty > 0 ? l.order2Qty : '-', l.order3Qty > 0 ? l.order3Qty : '-', l.totalQty, l.milestone]);
+        const typeLabel = currentRepData.apiType === 'homecare' ? 'Homecare' : 'Hardware';
+        const headers = ['Type', 'Code', 'Store Name', 'Area', 'Region', 'Contact', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
+        const data = currentRepData.convertedLeads.map(l => [
+            typeLabel,
+            l.customerCode, l.storeName, l.area, l.region, l.contactPerson,
+            l.order1Qty > 0 ? l.order1Qty : '-',
+            l.order2Qty > 0 ? l.order2Qty : '-',
+            l.order3Qty > 0 ? l.order3Qty : '-',
+            l.totalQty, l.milestone
+        ]);
         downloadPdf(data, headers, currentRepData.name + ' - Converted Leads', 'Converted Leads - ' + currentRepData.name);
         showMsg('PDF downloaded!', 'success');
     });
@@ -1452,11 +1628,22 @@
         const isHomecare = currentTerminatedLeads.length > 0 && currentTerminatedLeads[0].type === 'homecare';
         let headers, data;
         if (isHomecare) {
-            headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Selling Steelwool', 'Comments', 'Qualification', 'Approval', 'Presentation', 'KYC', 'Sales Rep Email'];
-            data = currentTerminatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.sellingSwool || '', l.comments || '', l.qualification, l.approval, l.presentation, l.kycOnboarding, l.salesRepEmail]);
+            headers = ['Type', 'Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Selling Steelwool', 'Comments', 'Qualification', 'Approval', 'Presentation', 'KYC', 'Sales Rep Email'];
+            data = currentTerminatedLeads.map(l => [
+                '🏠 Homecare',
+                l.customerCode, l.storeName, l.area, l.region, l.location, 
+                l.contactPerson, l.mobileNumber, l.sellingSwool || '', l.comments || '', 
+                l.qualification, l.approval, l.presentation, l.kycOnboarding, l.salesRepEmail
+            ]);
         } else {
-            headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Qualification', 'Approval', 'Presentation', 'KYC', 'Sales Rep Email', 'Feedback'];
-            data = currentTerminatedLeads.map(l => [l.customerCode, l.storeName, l.area, l.region, l.location, l.contactPerson, l.mobileNumber, l.outletCategory, l.brandsStocked, l.purchaseFrequency, l.mainSupplier, l.distributorType, l.weldplusAwareness, l.qualification, l.approval, l.presentation, l.kycOnboarding, l.salesRepEmail, l.additionalFeedback]);
+            headers = ['Type', 'Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Qualification', 'Approval', 'Presentation', 'KYC', 'Sales Rep Email', 'Feedback'];
+            data = currentTerminatedLeads.map(l => [
+                '🔩 Hardware',
+                l.customerCode, l.storeName, l.area, l.region, l.location, 
+                l.contactPerson, l.mobileNumber, l.outletCategory, l.brandsStocked, 
+                l.purchaseFrequency, l.mainSupplier, l.distributorType, l.weldplusAwareness, 
+                l.qualification, l.approval, l.presentation, l.kycOnboarding, l.salesRepEmail, l.additionalFeedback
+            ]);
         }
         downloadExcel(data, headers, 'Terminated Leads - ' + new Date().toLocaleDateString().replace(/\//g, '-'));
         showMsg('Terminated leads Excel downloaded!', 'success');
@@ -1484,6 +1671,7 @@
         if ($('roleSelect').value === 'SalesRep') {
             isSalesRepLoggedIn = false;
             salesRepName = '';
+            salesRepApiType = 'hardware';
             $('salesRepEmail').value = '';
             $('salesRepPassword').value = '';
             $('salesRepEmail').disabled = false;
@@ -1536,6 +1724,6 @@
                 console.log('Service Worker registration failed:', error);
             });
     }
-</script>
- </body>
+  </script>
+</body>
 </html>
