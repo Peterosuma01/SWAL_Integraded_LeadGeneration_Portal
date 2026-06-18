@@ -14,7 +14,7 @@
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;display:flex;justify-content:center;align-items:center}
-    .container{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:860px;width:100%;padding:28px}
+    .container{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:900px;width:100%;padding:28px}
     .header{text-align:center;margin-bottom:18px;padding-bottom:12px;border-bottom:3px solid #667eea}
     .header-title{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
     h1{color:#333;font-size:22px;margin-bottom:4px}
@@ -44,6 +44,9 @@
     .btn-pink{background:linear-gradient(135deg,#ec4899 0%,#db2777 100%)}
     .btn-hardware{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff}
     .btn-homecare{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff}
+    .btn-filter{background:#e5e7eb;color:#374151;border:2px solid transparent}
+    .btn-filter.active-hardware{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+    .btn-filter.active-homecare{border-color:#10b981;background:#ecfdf5;color:#065f46}
     .message{padding:12px;border-radius:8px;margin-top:14px;display:none;font-size:13px}
     .message.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;display:block}
     .message.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;display:block}
@@ -61,7 +64,7 @@
     .leads-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:11px}
     .leads-table th,.leads-table td{padding:6px;border:1px solid #e1e8ed;text-align:left}
     .leads-table th{background:#fafafa;font-weight:700;position:sticky;top:0}
-    .table-wrap{max-height:350px;overflow:auto;margin-top:12px}
+    .table-wrap{max-height:400px;overflow:auto;margin-top:12px}
     .order-status{font-size:12px;color:#666;margin-top:8px;padding:8px;background:#f9fafb;border-radius:6px}
     .modal-overlay{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000}
     .modal{background:#fff;padding:18px;border-radius:8px;width:320px;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
@@ -118,6 +121,9 @@
     .type-selector-small label:has(input:checked){background:#667eea;color:#fff}
     .type-selector-small input[type="radio"]{width:14px;height:14px;accent-color:#667eea;margin:0}
     .type-selector-small .type-badge{font-size:9px;padding:1px 6px}
+    .filter-bar{display:flex;gap:8px;flex-wrap:wrap;padding:8px 0;margin-bottom:8px;border-bottom:1px solid #f0f0f0}
+    .filter-bar .btn.small{font-size:11px;padding:6px 12px}
+    .filter-bar .filter-label{font-size:12px;font-weight:600;color:#666;align-self:center}
     .willingness-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
     .willingness-table th,.willingness-table td{padding:8px 10px;border:1px solid #e1e8ed;text-align:center}
     .willingness-table th{background:#f0f3ff;font-weight:700;color:#333}
@@ -133,6 +139,12 @@
     .type-badge.hardware{background:#3b82f6}
     .type-badge.homecare{background:#10b981}
     .type-badge.small{font-size:8px;padding:1px 6px}
+    .type-badge.all{background:#6b7280}
+    .view-type-btn{font-size:11px;padding:5px 12px;border-radius:6px;border:2px solid transparent;cursor:pointer;transition:all 0.2s;font-weight:600;background:#f3f4f6;color:#374151}
+    .view-type-btn:hover{transform:translateY(-1px)}
+    .view-type-btn.active-hardware{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+    .view-type-btn.active-homecare{border-color:#10b981;background:#ecfdf5;color:#065f46}
+    .view-type-btn.active-all{border-color:#6b7280;background:#f3f4f6;color:#374151}
     @media(max-width:640px){
       .btn-row{flex-direction:column}.btn.small{width:100%}.container{padding:16px;margin:10px}
       .field-inline{flex-direction:column}.field-inline>input{width:100%;min-height:50px;font-size:16px}
@@ -142,6 +154,7 @@
       .rep-stats{grid-template-columns:1fr 1fr}.download-row{flex-direction:column}.checkbox-group{flex-direction:column}
       .type-selector{flex-direction:column}.type-selector label{justify-content:center}
       .type-selector-small{flex-wrap:wrap}.type-selector-small label{flex:1;justify-content:center}
+      .filter-bar{flex-direction:column;align-items:stretch}.filter-bar .btn.small{width:100%;text-align:center}
       .willingness-table{font-size:11px}.willingness-table th,.willingness-table td{padding:5px 4px}
       .price-table{font-size:11px}.price-table th,.price-table td{padding:4px 3px}
     }
@@ -402,11 +415,19 @@
 
       <div id="detailsSection" class="hidden"><div class="section-title">Customer Details</div><div style="overflow-x:auto"><table class="details-table" id="detailsTable"></table></div></div>
 
-      <!-- Leads/Orders Display -->
+      <!-- Leads/Orders Display with Filter -->
       <div id="leadsSection" class="hidden">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:18px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #f0f0f0">
           <span class="section-title" id="leadsTitle" style="margin:0;border:none;padding:0">Leads</span>
           <button class="btn small btn-teal hidden" id="btnDownloadTerminatedExcel" style="margin-top:0">📗 Download Excel</button>
+        </div>
+        <!-- FILTER BAR -->
+        <div class="filter-bar">
+          <span class="filter-label">Filter by type:</span>
+          <button class="btn small view-type-btn active-all" data-filter="all" onclick="setLeadFilter('all')">📊 All</button>
+          <button class="btn small view-type-btn" data-filter="hardware" onclick="setLeadFilter('hardware')">🔩 Hardware</button>
+          <button class="btn small view-type-btn" data-filter="homecare" onclick="setLeadFilter('homecare')">🏠 Homecare</button>
+          <span style="font-size:11px;color:#666;align-self:center;margin-left:auto;" id="leadFilterCount">Showing: 0 leads</span>
         </div>
         <div class="table-wrap"><table class="leads-table" id="leadsTable"></table></div>
         <button class="btn small btn-gray" id="btnCloseLeads" style="margin-top:12px">Close List</button>
@@ -465,6 +486,10 @@
     let currentRepData = null;
     let currentTerminatedLeads = [];
     let salesRepApiType = 'hardware';
+    
+    // Filter state
+    let currentFilter = 'all';
+    let currentLeadData = [];
 
     const $ = id => document.getElementById(id);
 
@@ -498,7 +523,6 @@
         return 'hardware';
     }
 
-    // Get the selected lead type for loading
     function getSelectedLoadType() {
         const selected = document.querySelector('input[name="loadLeadType"]:checked');
         return selected ? selected.value : 'hardware';
@@ -527,6 +551,64 @@
         msg.textContent = text;
         msg.style.display = 'block';
         setTimeout(() => msg.style.display = 'none', 6000);
+    }
+
+    // ========== FILTER FUNCTIONS ==========
+    function setLeadFilter(filter) {
+        currentFilter = filter;
+        // Update button styles
+        document.querySelectorAll('.view-type-btn').forEach(btn => {
+            btn.className = 'btn small view-type-btn';
+            if (btn.dataset.filter === filter) {
+                btn.classList.add('active-' + filter);
+            }
+        });
+        // Re-render the table with filter
+        renderFilteredLeads();
+    }
+
+    function renderFilteredLeads() {
+        const filtered = currentFilter === 'all' 
+            ? currentLeadData 
+            : currentLeadData.filter(l => l.type === currentFilter);
+        
+        const table = $('leadsTable');
+        if (filtered.length === 0) {
+            table.innerHTML = '<tr><td colspan="20" style="text-align:center;padding:20px;color:#666;">No leads found for this filter</td></tr>';
+            $('leadFilterCount').textContent = 'Showing: 0 leads';
+            return;
+        }
+        
+        $('leadFilterCount').textContent = 'Showing: ' + filtered.length + ' leads';
+        
+        const isHomecare = filtered.length > 0 && filtered[0].type === 'homecare';
+        
+        let headers, rowMapper;
+        
+        if (isHomecare) {
+            headers = ['Type', 'Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Code'];
+            rowMapper = l => [
+                '<span class="type-badge homecare">🏠 Homecare</span>',
+                l.region || '', l.area || '', l.location || '', l.storeName || '', 
+                l.contactPerson || '', l.mobileNumber || '', l.sellingSwool || '', 
+                l.sokoniSource || '', l.otherBrands || '', l.monthlyVolume || '', 
+                l.comments || '', l.customerCode || ''
+            ];
+        } else {
+            headers = ['Type', 'Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Feedback', 'Code'];
+            rowMapper = l => [
+                '<span class="type-badge hardware">🔩 Hardware</span>',
+                l.region || '', l.area || '', l.location || '', l.storeName || '', 
+                l.contactPerson || '', l.mobileNumber || '', l.outletCategory || '', 
+                l.brandsStocked || '', l.purchaseFrequency || '', l.mainSupplier || '', 
+                l.distributorType || '', l.weldplusAwareness || '', l.additionalFeedback || '', 
+                l.customerCode || ''
+            ];
+        }
+        
+        table.innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
+            filtered.map(l => '<tr>' + rowMapper(l).map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>').join('') + 
+            '</tbody>';
     }
 
     // ========== DOWNLOAD FUNCTIONS ==========
@@ -796,8 +878,23 @@
             return;
         }
         
-        const leadsWithType = res.data.map(l => ({ ...l, type: salesRepApiType }));
-        renderLeadsTable(leadsWithType, '📋 My Generated Leads (' + salesRepApiType.toUpperCase() + ')', false);
+        currentLeadData = res.data.map(l => ({ ...l, type: salesRepApiType }));
+        currentFilter = 'all';
+        $('leadsTitle').textContent = '📋 My Generated Leads (' + salesRepApiType.toUpperCase() + ')';
+        $('leadsSection').classList.remove('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
+        $('btnDownloadTerminatedExcel').classList.add('hidden');
+        
+        // Reset filter buttons
+        document.querySelectorAll('.view-type-btn').forEach(btn => {
+            btn.className = 'btn small view-type-btn';
+            if (btn.dataset.filter === 'all') {
+                btn.classList.add('active-all');
+            }
+        });
+        renderFilteredLeads();
     });
 
     $('btnViewOrders').addEventListener('click', async () => {
@@ -838,7 +935,28 @@
         }
         
         currentTerminatedLeads = res.data;
-        renderLeadsTable(res.data, title, showTerminatedDownload);
+        currentLeadData = res.data;
+        currentFilter = 'all';
+        $('leadsTitle').textContent = title;
+        $('leadsSection').classList.remove('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
+        
+        if (showTerminatedDownload) {
+            $('btnDownloadTerminatedExcel').classList.remove('hidden');
+        } else {
+            $('btnDownloadTerminatedExcel').classList.add('hidden');
+        }
+        
+        // Reset filter buttons
+        document.querySelectorAll('.view-type-btn').forEach(btn => {
+            btn.className = 'btn small view-type-btn';
+            if (btn.dataset.filter === 'all') {
+                btn.classList.add('active-all');
+            }
+        });
+        renderFilteredLeads();
     }
 
     $('btnRefreshDashboard').addEventListener('click', () => {
@@ -859,7 +977,22 @@
             showMsg('No approved leads (terminated leads are excluded)', 'info');
             return;
         }
-        renderLeadsTable(dashboardData.approvedLeads, '✅ Approved Leads (' + dashboardData.approvedLeadsCount + ')', false);
+        currentLeadData = dashboardData.approvedLeads;
+        currentFilter = 'all';
+        $('leadsTitle').textContent = '✅ Approved Leads (' + dashboardData.approvedLeadsCount + ')';
+        $('leadsSection').classList.remove('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
+        $('btnDownloadTerminatedExcel').classList.add('hidden');
+        
+        document.querySelectorAll('.view-type-btn').forEach(btn => {
+            btn.className = 'btn small view-type-btn';
+            if (btn.dataset.filter === 'all') {
+                btn.classList.add('active-all');
+            }
+        });
+        renderFilteredLeads();
     });
 
     $('btnViewTerminatedLeads').addEventListener('click', () => {
@@ -876,7 +1009,22 @@
             showMsg('No leads found', 'info');
             return;
         }
-        renderLeadsTable(res.data, '📋 All Generated Leads', false);
+        currentLeadData = res.data;
+        currentFilter = 'all';
+        $('leadsTitle').textContent = '📋 All Generated Leads';
+        $('leadsSection').classList.remove('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
+        $('btnDownloadTerminatedExcel').classList.add('hidden');
+        
+        document.querySelectorAll('.view-type-btn').forEach(btn => {
+            btn.className = 'btn small view-type-btn';
+            if (btn.dataset.filter === 'all') {
+                btn.classList.add('active-all');
+            }
+        });
+        renderFilteredLeads();
     });
 
     $('btnViewOrdersSummary').addEventListener('click', async () => {
@@ -892,54 +1040,11 @@
         renderOrdersTable(res.data);
     });
 
-    // ========== RENDER LEADS TABLE ==========
-    function renderLeadsTable(leads, title, showTerminatedDownload) {
-        $('leadsTitle').textContent = title;
-        
-        if (showTerminatedDownload && $('roleSelect').value === 'Supervisor') {
-            $('btnDownloadTerminatedExcel').classList.remove('hidden');
-        } else {
-            $('btnDownloadTerminatedExcel').classList.add('hidden');
-        }
-        
-        const isHomecare = leads.length > 0 && leads[0].type === 'homecare';
-        
-        let headers, rowMapper;
-        
-        if (isHomecare) {
-            headers = ['Type', 'Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Code'];
-            rowMapper = l => [
-                '<span class="type-badge homecare">🏠 Homecare</span>',
-                l.region || '', l.area || '', l.location || '', l.storeName || '', 
-                l.contactPerson || '', l.mobileNumber || '', l.sellingSwool || '', 
-                l.sokoniSource || '', l.otherBrands || '', l.monthlyVolume || '', 
-                l.comments || '', l.customerCode || ''
-            ];
-        } else {
-            headers = ['Type', 'Region', 'Area', 'Location', 'Store Name', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Feedback', 'Code'];
-            rowMapper = l => [
-                '<span class="type-badge hardware">🔩 Hardware</span>',
-                l.region || '', l.area || '', l.location || '', l.storeName || '', 
-                l.contactPerson || '', l.mobileNumber || '', l.outletCategory || '', 
-                l.brandsStocked || '', l.purchaseFrequency || '', l.mainSupplier || '', 
-                l.distributorType || '', l.weldplusAwareness || '', l.additionalFeedback || '', 
-                l.customerCode || ''
-            ];
-        }
-        
-        $('leadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
-            leads.map(l => '<tr>' + rowMapper(l).map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>').join('') + 
-            '</tbody>';
-        
-        $('leadsSection').classList.remove('hidden');
-        $('detailsSection').classList.add('hidden');
-        $('ordersSection').classList.add('hidden');
-        $('leadFormSection').classList.add('hidden');
-    }
-
+    // ========== RENDER ORDERS TABLE ==========
     function renderOrdersTable(orders) {
         $('leadsTitle').textContent = '📦 Orders Summary';
         $('btnDownloadTerminatedExcel').classList.add('hidden');
+        // For orders, we show all without filter since they're already filtered by type
         $('leadsTable').innerHTML = '<thead><tr><th>Customer Code</th><th>Orders</th><th>Total Kgs</th><th>Avg Kgs</th></tr></thead><tbody>' + 
             orders.map(o => '<tr><td>' + o.customerCode + '</td><td>' + o.numberOfOrders + '</td><td>' + o.totalQuantity.toFixed(2) + '</td><td>' + o.averageQuantity.toFixed(2) + '</td></tr>').join('') + 
             '</tbody>';
@@ -947,12 +1052,23 @@
         $('detailsSection').classList.add('hidden');
         $('ordersSection').classList.add('hidden');
         $('leadFormSection').classList.add('hidden');
+        
+        // Hide filter bar for orders
+        document.querySelector('.filter-bar').style.display = 'none';
     }
+
+    // Show filter bar when showing leads (override)
+    const origRenderLeads = renderFilteredLeads;
+    renderFilteredLeads = function() {
+        document.querySelector('.filter-bar').style.display = 'flex';
+        origRenderLeads();
+    };
 
     $('btnCloseLeads').addEventListener('click', () => {
         $('leadsSection').classList.add('hidden');
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         currentTerminatedLeads = [];
+        currentLeadData = [];
     });
 
     // ========== LEAD GENERATION FORM ==========
@@ -1167,11 +1283,9 @@
         if (role === 'SalesRep' && !isSalesRepLoggedIn) { showMsg('Please login first', 'error'); return; }
         if (role === 'Supervisor' && !isSupervisorLoggedIn) { showMsg('Please login as supervisor first', 'error'); return; }
         
-        // Get the selected lead type for loading
         const loadType = getSelectedLoadType();
         console.log('Loading customer code from:', loadType);
         
-        // Switch to the correct API based on the selected lead type
         setApiUrl(loadType);
         
         const res = await api('getLeadStatus', {
@@ -1225,7 +1339,6 @@
         updateUI();
         showMsg('Lead loaded (row ' + currentLead.row + ') from ' + loadType.toUpperCase() + ' sheet', 'success');
         
-        // Reset API back to user's type after loading
         if (role === 'SalesRep' && isSalesRepLoggedIn) {
             setApiUrl(salesRepApiType);
         } else if (role === 'Supervisor' && isSupervisorLoggedIn) {
@@ -1306,7 +1419,6 @@
         if (!code) { showMsg('Enter customer code', 'error'); return; }
         if (!isSalesRepLoggedIn) { showMsg('Login first', 'error'); return; }
         
-        // Use the sales rep's API type for orders
         setApiUrl(salesRepApiType);
         
         const res = await api('getAvailableOrders', {
@@ -1368,7 +1480,6 @@
             return;
         }
         
-        // Use the sales rep's API type for orders
         setApiUrl(salesRepApiType);
         
         const res = await api('submitOrder', {
@@ -1404,7 +1515,6 @@
             qv = 'Other: ' + ct;
         }
         
-        // Use the lead's type for the update
         const leadType = currentLead.type || supervisorType;
         setApiUrl(leadType);
         
@@ -1466,7 +1576,6 @@
         } else if (role === 'SalesRep') {
             let updates = [], errors = [];
             
-            // Use the lead's type for updates
             const leadType = currentLead.type || salesRepApiType;
             setApiUrl(leadType);
             
@@ -1511,7 +1620,6 @@
                 showMsg('No changes', 'info');
             }
             
-            // Reset API back to user's type
             setApiUrl(salesRepApiType);
         }
     });
@@ -1941,12 +2049,16 @@
         }
         
         currentTerminatedLeads = [];
+        currentLeadData = [];
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         updateUI();
     });
 
     // ========== INITIALIZATION ==========
     updateUI();
+    
+    // Make setLeadFilter globally accessible
+    window.setLeadFilter = setLeadFilter;
     
     if ('serviceWorker' in navigator) {
         const swUrl = window.location.pathname.includes('/SWAL-Integrated-LeadGeneration/') 
