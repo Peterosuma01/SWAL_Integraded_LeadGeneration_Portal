@@ -146,6 +146,8 @@
     .view-type-btn.active-homecare{border-color:#10b981;background:#ecfdf5;color:#065f46}
     .view-type-btn.active-all{border-color:#6b7280;background:#f3f4f6;color:#374151}
     .unit-label{font-size:12px;font-weight:600;color:#666;margin-left:4px}
+    .order-summary-total{background:#f8fafc;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:13px;font-weight:600;color:#333;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    .order-summary-total span{color:#667eea}
     @media(max-width:640px){
       .btn-row{flex-direction:column}.btn.small{width:100%}.container{padding:16px;margin:10px}
       .field-inline{flex-direction:column}.field-inline>input{width:100%;min-height:50px;font-size:16px}
@@ -158,6 +160,7 @@
       .filter-bar{flex-direction:column;align-items:stretch}.filter-bar .btn.small{width:100%;text-align:center}
       .willingness-table{font-size:11px}.willingness-table th,.willingness-table td{padding:5px 4px}
       .price-table{font-size:11px}.price-table th,.price-table td{padding:4px 3px}
+      .order-summary-total{flex-direction:column;text-align:center}
     }
   </style>
 </head>
@@ -537,6 +540,8 @@
     // Filter state
     let currentFilter = 'all';
     let currentLeadData = [];
+    // Store orders data for filtering
+    let currentOrdersData = [];
 
     const $ = id => document.getElementById(id);
 
@@ -672,6 +677,113 @@
         table.innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
             filtered.map(l => '<tr>' + rowMapper(l).map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>').join('') + 
             '</tbody>';
+    }
+
+    // ========== ORDER SUMMARY FUNCTIONS ==========
+    async function loadOrdersSummary() {
+        if (!isSupervisorLoggedIn) {
+            showMsg('Please login as supervisor first', 'error');
+            return;
+        }
+        
+        // Fetch orders from both Hardware and Homecare
+        const hardwareRes = await api('getOrdersSummary', { type: 'hardware' });
+        const homecareRes = await api('getOrdersSummary', { type: 'homecare' });
+        
+        let allOrders = [];
+        let totalHardware = 0;
+        let totalHomecare = 0;
+        let totalOrders = 0;
+        
+        if (hardwareRes.success && hardwareRes.data.length > 0) {
+            const hardwareOrders = hardwareRes.data.map(o => ({ ...o, type: 'hardware' }));
+            allOrders = [...allOrders, ...hardwareOrders];
+            totalHardware = hardwareOrders.length;
+        }
+        
+        if (homecareRes.success && homecareRes.data.length > 0) {
+            const homecareOrders = homecareRes.data.map(o => ({ ...o, type: 'homecare' }));
+            allOrders = [...allOrders, ...homecareOrders];
+            totalHomecare = homecareOrders.length;
+        }
+        
+        totalOrders = allOrders.length;
+        currentOrdersData = allOrders;
+        
+        if (allOrders.length === 0) {
+            showMsg('No orders found in either system', 'info');
+            renderOrdersTable([], 0, 0);
+            return;
+        }
+        
+        renderOrdersTable(allOrders, totalHardware, totalHomecare);
+    }
+
+    function renderOrdersTable(orders, hardwareCount, homecareCount) {
+        $('leadsTitle').textContent = '📦 Orders Summary';
+        $('btnDownloadTerminatedExcel').classList.add('hidden');
+        
+        // Show filter bar for orders
+        document.querySelector('.filter-bar').style.display = 'flex';
+        
+        // Update filter count
+        $('leadFilterCount').textContent = 'Total: ' + orders.length + ' orders (🔩 ' + hardwareCount + ' | 🏠 ' + homecareCount + ')';
+        
+        // Build table with type badges
+        const headers = ['Type', 'Customer Code', 'Orders', 'Total Quantity', 'Avg Quantity'];
+        const rowData = orders.map(o => {
+            const typeBadge = o.type === 'homecare' ? 
+                '<span class="type-badge homecare">🏠 Homecare</span>' : 
+                '<span class="type-badge hardware">🔩 Hardware</span>';
+            const unitLabel = o.type === 'homecare' ? 'Bales' : 'Kgs';
+            return [
+                typeBadge,
+                o.customerCode,
+                o.numberOfOrders,
+                o.totalQuantity.toFixed(2) + ' ' + unitLabel,
+                o.averageQuantity.toFixed(2) + ' ' + unitLabel
+            ];
+        });
+        
+        $('leadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
+            rowData.map(row => '<tr>' + row.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') + 
+            '</tbody>';
+        
+        // Add summary footer
+        let totalQuantity = 0;
+        let totalOrdersCount = 0;
+        orders.forEach(o => {
+            totalQuantity += o.totalQuantity;
+            totalOrdersCount += o.numberOfOrders;
+        });
+        
+        const hardwareOrders = orders.filter(o => o.type === 'hardware');
+        const homecareOrders = orders.filter(o => o.type === 'homecare');
+        const hwQty = hardwareOrders.reduce((sum, o) => sum + o.totalQuantity, 0);
+        const hcQty = homecareOrders.reduce((sum, o) => sum + o.totalQuantity, 0);
+        
+        const summaryHtml = `
+            <div class="order-summary-total">
+                <span>📊 Total Orders: ${totalOrdersCount}</span>
+                <span>🔩 Hardware: ${hardwareOrders.length} orders (${hwQty.toFixed(2)} Kgs)</span>
+                <span>🏠 Homecare: ${homecareOrders.length} orders (${hcQty.toFixed(2)} Bales)</span>
+                <span>📦 Total Quantity: ${totalQuantity.toFixed(2)}</span>
+            </div>
+        `;
+        
+        // Add summary after table
+        const tableWrap = document.querySelector('.table-wrap');
+        let existingSummary = document.querySelector('.order-summary-total');
+        if (existingSummary) existingSummary.remove();
+        
+        const summaryDiv = document.createElement('div');
+        summaryDiv.innerHTML = summaryHtml;
+        tableWrap.parentNode.insertBefore(summaryDiv.firstElementChild, tableWrap.nextSibling);
+        
+        $('leadsSection').classList.remove('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
     }
 
     // ========== DOWNLOAD FUNCTIONS ==========
@@ -950,6 +1062,7 @@
         $('leadFormSection').classList.add('hidden');
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         
+        document.querySelector('.filter-bar').style.display = 'flex';
         document.querySelectorAll('.view-type-btn').forEach(btn => {
             btn.className = 'btn small view-type-btn';
             if (btn.dataset.filter === 'all') {
@@ -959,12 +1072,14 @@
         renderFilteredLeads();
     });
 
+    // ========== SALES REP VIEW ORDERS ==========
     $('btnViewOrders').addEventListener('click', async () => {
         if (!isSalesRepLoggedIn) {
             showMsg('Please login first', 'error');
             return;
         }
         
+        // Fetch orders for the sales rep's type
         setApiUrl(salesRepApiType);
         
         const res = await api('getOrdersSummary', { type: salesRepApiType });
@@ -976,7 +1091,58 @@
             showMsg('No orders yet', 'info');
             return;
         }
-        renderOrdersTable(res.data);
+        
+        const ordersWithType = res.data.map(o => ({ ...o, type: salesRepApiType }));
+        const unitLabel = salesRepApiType === 'homecare' ? 'Bales' : 'Kgs';
+        
+        // Show orders with type badge
+        $('leadsTitle').textContent = '📦 My Orders (' + salesRepApiType.toUpperCase() + ')';
+        $('btnDownloadTerminatedExcel').classList.add('hidden');
+        document.querySelector('.filter-bar').style.display = 'none';
+        
+        const headers = ['Type', 'Customer Code', 'Orders', 'Total Quantity', 'Avg Quantity'];
+        $('leadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
+            ordersWithType.map(o => {
+                const typeBadge = o.type === 'homecare' ? 
+                    '<span class="type-badge homecare">🏠 Homecare</span>' : 
+                    '<span class="type-badge hardware">🔩 Hardware</span>';
+                return '<tr>' +
+                    '<td>' + typeBadge + '</td>' +
+                    '<td>' + o.customerCode + '</td>' +
+                    '<td>' + o.numberOfOrders + '</td>' +
+                    '<td>' + o.totalQuantity.toFixed(2) + ' ' + unitLabel + '</td>' +
+                    '<td>' + o.averageQuantity.toFixed(2) + ' ' + unitLabel + '</td>' +
+                    '</tr>';
+            }).join('') + 
+            '</tbody>';
+        
+        $('leadsSection').classList.remove('hidden');
+        $('detailsSection').classList.add('hidden');
+        $('ordersSection').classList.add('hidden');
+        $('leadFormSection').classList.add('hidden');
+        
+        // Add summary
+        let totalQty = 0;
+        let totalOrders = 0;
+        ordersWithType.forEach(o => {
+            totalQty += o.totalQuantity;
+            totalOrders += o.numberOfOrders;
+        });
+        
+        const summaryHtml = `
+            <div class="order-summary-total">
+                <span>📊 Total Orders: ${totalOrders}</span>
+                <span>📦 Total Quantity: ${totalQty.toFixed(2)} ${unitLabel}</span>
+            </div>
+        `;
+        
+        const tableWrap = document.querySelector('.table-wrap');
+        let existingSummary = document.querySelector('.order-summary-total');
+        if (existingSummary) existingSummary.remove();
+        
+        const summaryDiv = document.createElement('div');
+        summaryDiv.innerHTML = summaryHtml;
+        tableWrap.parentNode.insertBefore(summaryDiv.firstElementChild, tableWrap.nextSibling);
     });
 
     // ========== SUPERVISOR VIEW LEADS ==========
@@ -1011,6 +1177,7 @@
             $('btnDownloadTerminatedExcel').classList.add('hidden');
         }
         
+        document.querySelector('.filter-bar').style.display = 'flex';
         document.querySelectorAll('.view-type-btn').forEach(btn => {
             btn.className = 'btn small view-type-btn';
             if (btn.dataset.filter === 'all') {
@@ -1047,6 +1214,7 @@
         $('leadFormSection').classList.add('hidden');
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         
+        document.querySelector('.filter-bar').style.display = 'flex';
         document.querySelectorAll('.view-type-btn').forEach(btn => {
             btn.className = 'btn small view-type-btn';
             if (btn.dataset.filter === 'all') {
@@ -1079,6 +1247,7 @@
         $('leadFormSection').classList.add('hidden');
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         
+        document.querySelector('.filter-bar').style.display = 'flex';
         document.querySelectorAll('.view-type-btn').forEach(btn => {
             btn.className = 'btn small view-type-btn';
             if (btn.dataset.filter === 'all') {
@@ -1088,38 +1257,17 @@
         renderFilteredLeads();
     });
 
-    $('btnViewOrdersSummary').addEventListener('click', async () => {
-        const res = await api('getOrdersSummary', { type: supervisorType });
-        if (!res.success) {
-            showMsg(res.message, 'error');
-            return;
-        }
-        if (res.data.length === 0) {
-            showMsg('No orders yet', 'info');
-            return;
-        }
-        renderOrdersTable(res.data);
+    // ========== SUPERVISOR VIEW ORDERS SUMMARY ==========
+    $('btnViewOrdersSummary').addEventListener('click', () => {
+        loadOrdersSummary();
     });
-
-    // ========== RENDER ORDERS TABLE ==========
-    function renderOrdersTable(orders) {
-        $('leadsTitle').textContent = '📦 Orders Summary';
-        $('btnDownloadTerminatedExcel').classList.add('hidden');
-        $('leadsTable').innerHTML = '<thead><tr><th>Customer Code</th><th>Orders</th><th>Total Quantity</th><th>Avg Quantity</th></tr></thead><tbody>' + 
-            orders.map(o => '<tr><td>' + o.customerCode + '</td><td>' + o.numberOfOrders + '</td><td>' + o.totalQuantity.toFixed(2) + '</td><td>' + o.averageQuantity.toFixed(2) + '</td></tr>').join('') + 
-            '</tbody>';
-        $('leadsSection').classList.remove('hidden');
-        $('detailsSection').classList.add('hidden');
-        $('ordersSection').classList.add('hidden');
-        $('leadFormSection').classList.add('hidden');
-        document.querySelector('.filter-bar').style.display = 'none';
-    }
 
     $('btnCloseLeads').addEventListener('click', () => {
         $('leadsSection').classList.add('hidden');
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         currentTerminatedLeads = [];
         currentLeadData = [];
+        currentOrdersData = [];
         document.querySelector('.filter-bar').style.display = 'flex';
     });
 
@@ -1460,7 +1608,6 @@
         $('orderQuantity').value = '';
         $('orderStatus').classList.add('hidden');
         currentOrderStatus = null;
-        // Set default unit
         updateOrderUnit();
     });
 
@@ -1475,7 +1622,6 @@
         if (!code) { showMsg('Enter customer code', 'error'); return; }
         if (!isSalesRepLoggedIn) { showMsg('Login first', 'error'); return; }
         
-        // Use the selected order type
         setApiUrl(orderType);
         
         const res = await api('getAvailableOrders', {
@@ -2111,6 +2257,7 @@
         
         currentTerminatedLeads = [];
         currentLeadData = [];
+        currentOrdersData = [];
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         updateUI();
     });
@@ -2118,7 +2265,6 @@
     // ========== INITIALIZATION ==========
     updateUI();
     
-    // Make setLeadFilter globally accessible
     window.setLeadFilter = setLeadFilter;
     
     if ('serviceWorker' in navigator) {
