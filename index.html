@@ -1804,222 +1804,232 @@
         }
     });
 
-    // View All Generated Leads - SEPARATED by type
-    $('btnRepAllLeads').addEventListener('click', async () => {
-        if (!currentRepData) {
-            showMsg('Select a sales representative first', 'error');
-            return;
-        }
-        
-        // Use the rep's API type
-        const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
-        setApiUrl(repApiType);
-        
-        const res = await api('getSalesRepDetails', {
-            salesRepEmail: currentRepData.email,
-            password: $('supervisorPasswordField').value.trim()
+   // View All Generated Leads - SEPARATED by type (FIXED - No Duplication)
+$('btnRepAllLeads').addEventListener('click', async () => {
+    if (!currentRepData) {
+        showMsg('Select a sales representative first', 'error');
+        return;
+    }
+    
+    // Use the rep's API type
+    const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
+    setApiUrl(repApiType);
+    
+    const res = await api('getSalesRepDetails', {
+        salesRepEmail: currentRepData.email,
+        password: $('supervisorPasswordField').value.trim()
+    });
+    
+    if (!res.success) {
+        showMsg(res.message, 'error');
+        return;
+    }
+    
+    currentRepData = res.data;
+    currentRepData.apiType = repApiType;
+    currentRepData.email = currentRepData.email || $('salesRepSelect').value;
+    
+    // IMPORTANT: Filter by type - these should be mutually exclusive
+    const hardwareLeads = currentRepData.generatedLeads.filter(l => l.type === 'hardware');
+    const homecareLeads = currentRepData.generatedLeads.filter(l => l.type === 'homecare');
+    
+    console.log('Hardware leads:', hardwareLeads.length);
+    console.log('Homecare leads:', homecareLeads.length);
+    console.log('Total leads:', currentRepData.generatedLeads.length);
+    
+    if (hardwareLeads.length === 0 && homecareLeads.length === 0) {
+        showMsg('No generated leads for this rep', 'info');
+        return;
+    }
+    
+    let sections = [];
+    
+    // Hardware Leads Section - ONLY from Hardware sheet
+    if (hardwareLeads.length > 0) {
+        const hwHeaders = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        const hwRows = hardwareLeads.map(l => {
+            const isTerminated = l.kycOnboarding === 'Lead Terminated';
+            const rowData = [
+                l.customerCode || '',
+                l.storeName || '',
+                l.area || '',
+                l.region || '',
+                l.contactPerson || '',
+                l.mobileNumber || '',
+                l.outletCategory || '',
+                l.brandsStocked || '',
+                l.purchaseFrequency || '',
+                l.mainSupplier || '',
+                l.distributorType || '',
+                l.weldplusAwareness || '',
+                l.qualification || '',
+                l.approval || '',
+                l.presentation || '',
+                l.kycOnboarding || ''
+            ];
+            return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
+                rowData.map(c => '<td>' + (c || '') + '</td>').join('') +
+                '</tr>';
         });
         
-        if (!res.success) {
-            showMsg(res.message, 'error');
-            return;
-        }
-        
-        currentRepData = res.data;
-        currentRepData.apiType = repApiType;
-        currentRepData.email = currentRepData.email || $('salesRepSelect').value;
-        
-        const hardwareLeads = currentRepData.generatedLeads.filter(l => l.type === 'hardware');
-        const homecareLeads = currentRepData.generatedLeads.filter(l => l.type === 'homecare');
-        
-        if (hardwareLeads.length === 0 && homecareLeads.length === 0) {
-            showMsg('No generated leads for this rep', 'info');
-            return;
-        }
-        
-        let sections = [];
-        
-        // Hardware Leads Section
-        if (hardwareLeads.length > 0) {
-            const hwHeaders = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-            const hwRows = hardwareLeads.map(l => {
-                const isTerminated = l.kycOnboarding === 'Lead Terminated';
-                const rowData = [
-                    l.customerCode || '',
-                    l.storeName || '',
-                    l.area || '',
-                    l.region || '',
-                    l.contactPerson || '',
-                    l.mobileNumber || '',
-                    l.outletCategory || '',
-                    l.brandsStocked || '',
-                    l.purchaseFrequency || '',
-                    l.mainSupplier || '',
-                    l.distributorType || '',
-                    l.weldplusAwareness || '',
-                    l.qualification || '',
-                    l.approval || '',
-                    l.presentation || '',
-                    l.kycOnboarding || ''
-                ];
-                return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
-                    rowData.map(c => '<td>' + (c || '') + '</td>').join('') +
-                    '</tr>';
-            });
-            
-            sections.push(`
-                <div class="section-divider hardware">🔩 Hardware Leads (${hardwareLeads.length})</div>
-                <table class="leads-table">
-                    <thead><tr>${hwHeaders.map(h => '<th>' + h + '</th>').join('')}</tr></thead>
-                    <tbody>${hwRows.join('')}</tbody>
-                </table>
-            `);
-        }
-        
-        // Homecare Leads Section
-        if (homecareLeads.length > 0) {
-            const hcHeaders = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-            const hcRows = homecareLeads.map(l => {
-                const isTerminated = l.kycOnboarding === 'Lead Terminated';
-                const rowData = [
-                    l.customerCode || '',
-                    l.storeName || '',
-                    l.area || '',
-                    l.region || '',
-                    l.contactPerson || '',
-                    l.mobileNumber || '',
-                    l.sellingSwool || '',
-                    l.sokoniSource || '',
-                    l.otherBrands || '',
-                    l.monthlyVolume || '',
-                    l.comments || '',
-                    l.qualification || '',
-                    l.approval || '',
-                    l.presentation || '',
-                    l.kycOnboarding || ''
-                ];
-                return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
-                    rowData.map(c => '<td>' + (c || '') + '</td>').join('') +
-                    '</tr>';
-            });
-            
-            sections.push(`
-                <div class="section-divider homecare">🏠 Homecare Leads (${homecareLeads.length})</div>
-                <table class="leads-table">
-                    <thead><tr>${hcHeaders.map(h => '<th>' + h + '</th>').join('')}</tr></thead>
-                    <tbody>${hcRows.join('')}</tbody>
-                </table>
-            `);
-        }
-        
-        $('repLeadsTitle').textContent = '📋 All Generated Leads (Total: ' + (hardwareLeads.length + homecareLeads.length) + ')';
-        $('repLeadsTable').innerHTML = sections.join('');
-        $('repLeadsTableSection').classList.remove('hidden');
-    });
-
-    // View Orders Placed - SEPARATED by type
-    $('btnRepConvertedLeads').addEventListener('click', async () => {
-        if (!currentRepData) {
-            showMsg('Select a sales representative first', 'error');
-            return;
-        }
-        
-        // Use the rep's API type
-        const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
-        setApiUrl(repApiType);
-        
-        const res = await api('getSalesRepDetails', {
-            salesRepEmail: currentRepData.email,
-            password: $('supervisorPasswordField').value.trim()
+        sections.push(`
+            <div class="section-divider hardware">🔩 Hardware Leads (${hardwareLeads.length})</div>
+            <table class="leads-table">
+                <thead><tr>${hwHeaders.map(h => '<th>' + h + '</th>').join('')}</tr></thead>
+                <tbody>${hwRows.join('')}</tbody>
+            </table>
+        `);
+    }
+    
+    // Homecare Leads Section - ONLY from Homecare sheet
+    if (homecareLeads.length > 0) {
+        const hcHeaders = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        const hcRows = homecareLeads.map(l => {
+            const isTerminated = l.kycOnboarding === 'Lead Terminated';
+            const rowData = [
+                l.customerCode || '',
+                l.storeName || '',
+                l.area || '',
+                l.region || '',
+                l.contactPerson || '',
+                l.mobileNumber || '',
+                l.sellingSwool || '',
+                l.sokoniSource || '',
+                l.otherBrands || '',
+                l.monthlyVolume || '',
+                l.comments || '',
+                l.qualification || '',
+                l.approval || '',
+                l.presentation || '',
+                l.kycOnboarding || ''
+            ];
+            return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
+                rowData.map(c => '<td>' + (c || '') + '</td>').join('') +
+                '</tr>';
         });
         
-        if (!res.success) {
-            showMsg(res.message, 'error');
-            return;
-        }
-        
-        currentRepData = res.data;
-        currentRepData.apiType = repApiType;
-        currentRepData.email = currentRepData.email || $('salesRepSelect').value;
-        
-        // Update stats
-        $('repConvertedCount').textContent = res.data.convertedCount || 0;
-        $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
-        $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
-        
-        const hardwareConverted = res.data.hardwareConverted || [];
-        const homecareConverted = res.data.homecareConverted || [];
-        const allConverted = res.data.convertedLeads || [];
-        
-        if (hardwareConverted.length === 0 && homecareConverted.length === 0) {
-            showMsg('No converted leads for this rep', 'info');
-            return;
-        }
-        
-        let sections = [];
-        
-        // Hardware Converted Section
-        if (hardwareConverted.length > 0) {
-            const hwHeaders = ['Code', 'Store Name', 'Area', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
-            const hwRows = hardwareConverted.map(l => {
-                let bc = 'milestone-1';
-                if (l.completedOrders === 3) bc = 'milestone-3';
-                else if (l.completedOrders === 2) bc = 'milestone-2';
-                return '<tr>' +
-                    '<td>' + l.customerCode + '</td>' +
-                    '<td>' + l.storeName + '</td>' +
-                    '<td>' + l.area + '</td>' +
-                    '<td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) : '-') + '</td>' +
-                    '<td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) : '-') + '</td>' +
-                    '<td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) : '-') + '</td>' +
-                    '<td>' + l.totalQty.toFixed(2) + '</td>' +
-                    '<td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td>' +
-                    '</tr>';
-            });
-            
-            sections.push(`
-                <div class="section-divider hardware">🔩 Hardware Orders (${hardwareConverted.length})</div>
-                <table class="leads-table">
-                    <thead><tr>${hwHeaders.map(h => '<th>' + h + '</th>').join('')}</tr></thead>
-                    <tbody>${hwRows.join('')}</tbody>
-                </table>
-            `);
-        }
-        
-        // Homecare Converted Section
-        if (homecareConverted.length > 0) {
-            const hcHeaders = ['Code', 'Store Name', 'Area', 'Order 1 (Bales)', 'Order 2 (Bales)', 'Order 3 (Bales)', 'Total (Bales)', 'Milestone'];
-            const hcRows = homecareConverted.map(l => {
-                let bc = 'milestone-1';
-                if (l.completedOrders === 3) bc = 'milestone-3';
-                else if (l.completedOrders === 2) bc = 'milestone-2';
-                return '<tr>' +
-                    '<td>' + l.customerCode + '</td>' +
-                    '<td>' + l.storeName + '</td>' +
-                    '<td>' + l.area + '</td>' +
-                    '<td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) : '-') + '</td>' +
-                    '<td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) : '-') + '</td>' +
-                    '<td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) : '-') + '</td>' +
-                    '<td>' + l.totalQty.toFixed(2) + '</td>' +
-                    '<td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td>' +
-                    '</tr>';
-            });
-            
-            sections.push(`
-                <div class="section-divider homecare">🏠 Homecare Orders (${homecareConverted.length})</div>
-                <table class="leads-table">
-                    <thead><tr>${hcHeaders.map(h => '<th>' + h + '</th>').join('')}</tr></thead>
-                    <tbody>${hcRows.join('')}</tbody>
-                </table>
-            `);
-        }
-        
-        $('repLeadsTitle').textContent = '📦 Orders Placed (Total: ' + allConverted.length + ')';
-        $('repLeadsTable').innerHTML = sections.join('');
-        $('repLeadsTableSection').classList.remove('hidden');
-    });
+        sections.push(`
+            <div class="section-divider homecare">🏠 Homecare Leads (${homecareLeads.length})</div>
+            <table class="leads-table">
+                <thead><tr>${hcHeaders.map(h => '<th>' + h + '</th>').join('')}</tr></thead>
+                <tbody>${hcRows.join('')}</tbody>
+            </table>
+        `);
+    }
+    
+    $('repLeadsTitle').textContent = '📋 All Generated Leads (Total: ' + (hardwareLeads.length + homecareLeads.length) + ')';
+    $('repLeadsTable').innerHTML = sections.join('');
+    $('repLeadsTableSection').classList.remove('hidden');
+});
 
-    // View Hardware Converted Leads only
+// View Orders Placed - SEPARATED by type (FIXED - No Duplication)
+$('btnRepConvertedLeads').addEventListener('click', async () => {
+    if (!currentRepData) {
+        showMsg('Select a sales representative first', 'error');
+        return;
+    }
+    
+    // Use the rep's API type
+    const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
+    setApiUrl(repApiType);
+    
+    const res = await api('getSalesRepDetails', {
+        salesRepEmail: currentRepData.email,
+        password: $('supervisorPasswordField').value.trim()
+    });
+    
+    if (!res.success) {
+        showMsg(res.message, 'error');
+        return;
+    }
+    
+    currentRepData = res.data;
+    currentRepData.apiType = repApiType;
+    currentRepData.email = currentRepData.email || $('salesRepSelect').value;
+    
+    // Update stats
+    $('repConvertedCount').textContent = res.data.convertedCount || 0;
+    $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
+    $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
+    
+    // These are already separated by type from the backend
+    const hardwareConverted = res.data.hardwareConverted || [];
+    const homecareConverted = res.data.homecareConverted || [];
+    const allConverted = res.data.convertedLeads || [];
+    
+    console.log('Hardware converted:', hardwareConverted.length);
+    console.log('Homecare converted:', homecareConverted.length);
+    console.log('Total converted:', allConverted.length);
+    
+    if (hardwareConverted.length === 0 && homecareConverted.length === 0) {
+        showMsg('No converted leads for this rep', 'info');
+        return;
+    }
+    
+    let sections = [];
+    
+    // Hardware Converted Section - ONLY from Hardware sheet
+    if (hardwareConverted.length > 0) {
+        const hwHeaders = ['Code', 'Store Name', 'Area', 'Order 1 (Kgs)', 'Order 2 (Kgs)', 'Order 3 (Kgs)', 'Total (Kgs)', 'Milestone'];
+        const hwRows = hardwareConverted.map(l => {
+            let bc = 'milestone-1';
+            if (l.completedOrders === 3) bc = 'milestone-3';
+            else if (l.completedOrders === 2) bc = 'milestone-2';
+            return '<tr>' +
+                '<td>' + l.customerCode + '</td>' +
+                '<td>' + l.storeName + '</td>' +
+                '<td>' + l.area + '</td>' +
+                '<td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) : '-') + '</td>' +
+                '<td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) : '-') + '</td>' +
+                '<td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) : '-') + '</td>' +
+                '<td>' + l.totalQty.toFixed(2) + '</td>' +
+                '<td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td>' +
+                '</tr>';
+        });
+        
+        sections.push(`
+            <div class="section-divider hardware">🔩 Hardware Orders (${hardwareConverted.length})</div>
+            <table class="leads-table">
+                <thead><tr>${hwHeaders.map(h => '<th>' + h + '</th>').join('')}</tr></thead>
+                <tbody>${hwRows.join('')}</tbody>
+            </table>
+        `);
+    }
+    
+    // Homecare Converted Section - ONLY from Homecare sheet
+    if (homecareConverted.length > 0) {
+        const hcHeaders = ['Code', 'Store Name', 'Area', 'Order 1 (Bales)', 'Order 2 (Bales)', 'Order 3 (Bales)', 'Total (Bales)', 'Milestone'];
+        const hcRows = homecareConverted.map(l => {
+            let bc = 'milestone-1';
+            if (l.completedOrders === 3) bc = 'milestone-3';
+            else if (l.completedOrders === 2) bc = 'milestone-2';
+            return '<tr>' +
+                '<td>' + l.customerCode + '</td>' +
+                '<td>' + l.storeName + '</td>' +
+                '<td>' + l.area + '</td>' +
+                '<td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) : '-') + '</td>' +
+                '<td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) : '-') + '</td>' +
+                '<td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) : '-') + '</td>' +
+                '<td>' + l.totalQty.toFixed(2) + '</td>' +
+                '<td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td>' +
+                '</tr>';
+        });
+        
+        sections.push(`
+            <div class="section-divider homecare">🏠 Homecare Orders (${homecareConverted.length})</div>
+            <table class="leads-table">
+                <thead><tr>${hcHeaders.map(h => '<th>' + h + '</th>').join('')}</tr></thead>
+                <tbody>${hcRows.join('')}</tbody>
+            </table>
+        `);
+    }
+    
+    $('repLeadsTitle').textContent = '📦 Orders Placed (Total: ' + allConverted.length + ')';
+    $('repLeadsTable').innerHTML = sections.join('');
+    $('repLeadsTableSection').classList.remove('hidden');
+});    
+    
+  // View Hardware Converted Leads only
     $('btnRepHardwareConverted').addEventListener('click', async () => {
         if (!currentRepData) {
             showMsg('Select a sales representative first', 'error');
