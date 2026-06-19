@@ -145,6 +145,7 @@
     .view-type-btn.active-hardware{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
     .view-type-btn.active-homecare{border-color:#10b981;background:#ecfdf5;color:#065f46}
     .view-type-btn.active-all{border-color:#6b7280;background:#f3f4f6;color:#374151}
+    .unit-label{font-size:12px;font-weight:600;color:#666;margin-left:4px}
     @media(max-width:640px){
       .btn-row{flex-direction:column}.btn.small{width:100%}.container{padding:16px;margin:10px}
       .field-inline{flex-direction:column}.field-inline>input{width:100%;min-height:50px;font-size:16px}
@@ -412,7 +413,7 @@
           <span style="margin-left:8px;font-size:11px;color:#666;">Choose where to search for the customer code</span>
         </div>
       </div>
-      
+
       <div id="detailsSection" class="hidden"><div class="section-title">Customer Details</div><div style="overflow-x:auto"><table class="details-table" id="detailsTable"></table></div></div>
 
       <!-- Leads/Orders Display with Filter -->
@@ -433,8 +434,54 @@
         <button class="btn small btn-gray" id="btnCloseLeads" style="margin-top:12px">Close List</button>
       </div>
 
-      <!-- Orders Section -->
-      <div id="ordersSection" class="hidden"><div class="section-title">Place Order</div><div class="form-group"><label>Customer Code *</label><div class="field-inline"><input type="text" id="orderCustomerCode" placeholder="Enter customer code"><button class="btn small" id="btnCheckStatus">Check Status</button></div></div><div id="orderStatus" class="order-status hidden"></div><div class="form-group"><label>Order Number *</label><select id="orderNumber" disabled><option value="">-- Check status first --</option></select></div><div class="form-group"><label>Quantity (Kgs) *</label><input type="number" id="orderQuantity" placeholder="Enter quantity" min="0" step="0.01"></div><div class="btn-row"><button class="btn small btn-teal" id="btnSubmitOrder">Submit Order</button><button class="btn small btn-gray" id="btnCloseOrders">Close</button></div></div>
+      <!-- ORDERS SECTION WITH LEAD TYPE SELECTOR -->
+      <div id="ordersSection" class="hidden">
+        <div class="section-title">📝 Place Order</div>
+        
+        <!-- Lead Type Selection for Orders -->
+        <div class="form-group">
+          <label>Lead Type <span class="required">*</span></label>
+          <div class="type-selector-small" style="display:inline-flex;padding:6px;background:#f8f9ff;border-radius:6px;border:1px solid #e1e8ed;">
+            <label>
+              <input type="radio" name="orderLeadType" value="hardware" checked onchange="updateOrderUnit()">
+              <span class="type-badge hardware small">🔩 Hardware</span>
+            </label>
+            <label>
+              <input type="radio" name="orderLeadType" value="homecare" onchange="updateOrderUnit()">
+              <span class="type-badge homecare small">🏠 Homecare</span>
+            </label>
+          </div>
+          <div class="meta">Select the type of lead to place an order for</div>
+        </div>
+        
+        <div class="form-group">
+          <label>Customer Code *</label>
+          <div class="field-inline">
+            <input type="text" id="orderCustomerCode" placeholder="Enter customer code">
+            <button class="btn small" id="btnCheckStatus">Check Status</button>
+          </div>
+        </div>
+        
+        <div id="orderStatus" class="order-status hidden"></div>
+        
+        <div class="form-group">
+          <label>Order Number *</label>
+          <select id="orderNumber" disabled>
+            <option value="">-- Check status first --</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Quantity (<span id="orderUnitLabel">Kgs</span>) *</label>
+          <input type="number" id="orderQuantity" placeholder="Enter quantity" min="0" step="0.01">
+          <div class="meta" id="orderUnitHint">Enter quantity in Kgs for Hardware orders</div>
+        </div>
+        
+        <div class="btn-row">
+          <button class="btn small btn-teal" id="btnSubmitOrder">Submit Order</button>
+          <button class="btn small btn-gray" id="btnCloseOrders">Close</button>
+        </div>
+      </div>
 
       <!-- Qualification -->
       <div class="section-title">Qualification</div>
@@ -528,6 +575,24 @@
         return selected ? selected.value : 'hardware';
     }
 
+    function getOrderLeadType() {
+        const selected = document.querySelector('input[name="orderLeadType"]:checked');
+        return selected ? selected.value : 'hardware';
+    }
+
+    function updateOrderUnit() {
+        const type = getOrderLeadType();
+        const unitLabel = $('orderUnitLabel');
+        const unitHint = $('orderUnitHint');
+        if (type === 'homecare') {
+            unitLabel.textContent = 'Bales';
+            unitHint.textContent = 'Enter quantity in Bales for Homecare orders';
+        } else {
+            unitLabel.textContent = 'Kgs';
+            unitHint.textContent = 'Enter quantity in Kgs for Hardware orders';
+        }
+    }
+
     async function api(action, data = {}) {
         $('loading').classList.add('show');
         try {
@@ -556,14 +621,12 @@
     // ========== FILTER FUNCTIONS ==========
     function setLeadFilter(filter) {
         currentFilter = filter;
-        // Update button styles
         document.querySelectorAll('.view-type-btn').forEach(btn => {
             btn.className = 'btn small view-type-btn';
             if (btn.dataset.filter === filter) {
                 btn.classList.add('active-' + filter);
             }
         });
-        // Re-render the table with filter
         renderFilteredLeads();
     }
 
@@ -887,7 +950,6 @@
         $('leadFormSection').classList.add('hidden');
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         
-        // Reset filter buttons
         document.querySelectorAll('.view-type-btn').forEach(btn => {
             btn.className = 'btn small view-type-btn';
             if (btn.dataset.filter === 'all') {
@@ -949,7 +1011,6 @@
             $('btnDownloadTerminatedExcel').classList.add('hidden');
         }
         
-        // Reset filter buttons
         document.querySelectorAll('.view-type-btn').forEach(btn => {
             btn.className = 'btn small view-type-btn';
             if (btn.dataset.filter === 'all') {
@@ -1044,31 +1105,22 @@
     function renderOrdersTable(orders) {
         $('leadsTitle').textContent = '📦 Orders Summary';
         $('btnDownloadTerminatedExcel').classList.add('hidden');
-        // For orders, we show all without filter since they're already filtered by type
-        $('leadsTable').innerHTML = '<thead><tr><th>Customer Code</th><th>Orders</th><th>Total Kgs</th><th>Avg Kgs</th></tr></thead><tbody>' + 
+        $('leadsTable').innerHTML = '<thead><tr><th>Customer Code</th><th>Orders</th><th>Total Quantity</th><th>Avg Quantity</th></tr></thead><tbody>' + 
             orders.map(o => '<tr><td>' + o.customerCode + '</td><td>' + o.numberOfOrders + '</td><td>' + o.totalQuantity.toFixed(2) + '</td><td>' + o.averageQuantity.toFixed(2) + '</td></tr>').join('') + 
             '</tbody>';
         $('leadsSection').classList.remove('hidden');
         $('detailsSection').classList.add('hidden');
         $('ordersSection').classList.add('hidden');
         $('leadFormSection').classList.add('hidden');
-        
-        // Hide filter bar for orders
         document.querySelector('.filter-bar').style.display = 'none';
     }
-
-    // Show filter bar when showing leads (override)
-    const origRenderLeads = renderFilteredLeads;
-    renderFilteredLeads = function() {
-        document.querySelector('.filter-bar').style.display = 'flex';
-        origRenderLeads();
-    };
 
     $('btnCloseLeads').addEventListener('click', () => {
         $('leadsSection').classList.add('hidden');
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         currentTerminatedLeads = [];
         currentLeadData = [];
+        document.querySelector('.filter-bar').style.display = 'flex';
     });
 
     // ========== LEAD GENERATION FORM ==========
@@ -1408,6 +1460,8 @@
         $('orderQuantity').value = '';
         $('orderStatus').classList.add('hidden');
         currentOrderStatus = null;
+        // Set default unit
+        updateOrderUnit();
     });
 
     $('btnCloseOrders').addEventListener('click', () => {
@@ -1416,16 +1470,19 @@
 
     $('btnCheckStatus').addEventListener('click', async () => {
         const code = $('orderCustomerCode').value.trim();
+        const orderType = getOrderLeadType();
+        
         if (!code) { showMsg('Enter customer code', 'error'); return; }
         if (!isSalesRepLoggedIn) { showMsg('Login first', 'error'); return; }
         
-        setApiUrl(salesRepApiType);
+        // Use the selected order type
+        setApiUrl(orderType);
         
         const res = await api('getAvailableOrders', {
             customerCode: code,
             salesRepEmail: $('salesRepEmail').value.trim(),
             salesRepPassword: $('salesRepPassword').value.trim(),
-            type: salesRepApiType
+            type: orderType
         });
         
         if (!res.success) {
@@ -1437,14 +1494,16 @@
         currentOrderStatus = res;
         updateOrderDropdown(res);
         
+        const unitLabel = orderType === 'homecare' ? 'Bales' : 'Kgs';
         let html = '';
         if (res.submittedOrders.length === 0) {
             html = 'No orders yet. Submit Order 1.';
         } else if (res.nextAvailableOrder === -1) {
             html = 'All 3 orders submitted.';
         } else {
-            html = 'Submitted: Order ' + res.submittedOrders.join(', ') + '<br><strong>Next:</strong> Order ' + res.nextAvailableOrder;
+            html = 'Submitted: Order ' + res.submittedOrders.join(', ') + ' (' + unitLabel + ')<br><strong>Next:</strong> Order ' + res.nextAvailableOrder;
         }
+        html += '<br><span style="font-size:11px;color:#666;">Order type: ' + orderType.toUpperCase() + ' (' + unitLabel + ')</span>';
         $('orderStatus').innerHTML = html;
         $('orderStatus').classList.remove('hidden');
     });
@@ -1466,6 +1525,7 @@
         const code = $('orderCustomerCode').value.trim();
         const num = $('orderNumber').value;
         const qty = parseFloat($('orderQuantity').value);
+        const orderType = getOrderLeadType();
         
         if (!code || !num || !qty || qty <= 0) {
             showMsg('Fill all fields', 'error');
@@ -1480,7 +1540,7 @@
             return;
         }
         
-        setApiUrl(salesRepApiType);
+        setApiUrl(orderType);
         
         const res = await api('submitOrder', {
             customerCode: code,
@@ -1488,11 +1548,12 @@
             quantity: qty,
             salesRepEmail: $('salesRepEmail').value.trim(),
             salesRepPassword: $('salesRepPassword').value.trim(),
-            type: salesRepApiType
+            type: orderType
         });
         
         if (res.success) {
-            showMsg(res.message, 'success');
+            const unitLabel = orderType === 'homecare' ? 'Bales' : 'Kgs';
+            showMsg(res.message + ' (' + unitLabel + ')', 'success');
             $('orderQuantity').value = '';
             $('btnCheckStatus').click();
         } else {
