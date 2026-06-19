@@ -12,6 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
+    /* ... (ALL THE SAME CSS AS BEFORE) ... */
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;display:flex;justify-content:center;align-items:center}
     .container{background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:900px;width:100%;padding:28px}
@@ -44,9 +45,6 @@
     .btn-pink{background:linear-gradient(135deg,#ec4899 0%,#db2777 100%)}
     .btn-hardware{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff}
     .btn-homecare{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff}
-    .btn-filter{background:#e5e7eb;color:#374151;border:2px solid transparent}
-    .btn-filter.active-hardware{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
-    .btn-filter.active-homecare{border-color:#10b981;background:#ecfdf5;color:#065f46}
     .message{padding:12px;border-radius:8px;margin-top:14px;display:none;font-size:13px}
     .message.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;display:block}
     .message.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;display:block}
@@ -540,7 +538,6 @@
     // Filter state
     let currentFilter = 'all';
     let currentLeadData = [];
-    // Store orders data for filtering
     let currentOrdersData = [];
 
     const $ = id => document.getElementById(id);
@@ -686,37 +683,50 @@
             return;
         }
         
-        // Fetch orders from both Hardware and Homecare
-        const hardwareRes = await api('getOrdersSummary', { type: 'hardware' });
-        const homecareRes = await api('getOrdersSummary', { type: 'homecare' });
+        // Save current API URL
+        const originalApiUrl = currentApiUrl;
         
         let allOrders = [];
         let totalHardware = 0;
         let totalHomecare = 0;
-        let totalOrders = 0;
         
-        if (hardwareRes.success && hardwareRes.data.length > 0) {
-            const hardwareOrders = hardwareRes.data.map(o => ({ ...o, type: 'hardware' }));
-            allOrders = [...allOrders, ...hardwareOrders];
-            totalHardware = hardwareOrders.length;
+        try {
+            // 1. Fetch Hardware orders - switch to hardware API
+            setApiUrl('hardware');
+            const hardwareRes = await api('getOrdersSummary', { type: 'hardware' });
+            
+            if (hardwareRes.success && hardwareRes.data.length > 0) {
+                const hardwareOrders = hardwareRes.data.map(o => ({ ...o, type: 'hardware' }));
+                allOrders = [...allOrders, ...hardwareOrders];
+                totalHardware = hardwareOrders.length;
+            }
+            
+            // 2. Fetch Homecare orders - switch to homecare API
+            setApiUrl('homecare');
+            const homecareRes = await api('getOrdersSummary', { type: 'homecare' });
+            
+            if (homecareRes.success && homecareRes.data.length > 0) {
+                const homecareOrders = homecareRes.data.map(o => ({ ...o, type: 'homecare' }));
+                allOrders = [...allOrders, ...homecareOrders];
+                totalHomecare = homecareOrders.length;
+            }
+            
+            // 3. Restore original API URL
+            setApiUrl(originalApiUrl);
+            
+            if (allOrders.length === 0) {
+                showMsg('No orders found in either system', 'info');
+                renderOrdersTable([], 0, 0);
+                return;
+            }
+            
+            renderOrdersTable(allOrders, totalHardware, totalHomecare);
+            
+        } catch (error) {
+            // Restore original API URL on error
+            setApiUrl(originalApiUrl);
+            showMsg('Error loading orders: ' + error.message, 'error');
         }
-        
-        if (homecareRes.success && homecareRes.data.length > 0) {
-            const homecareOrders = homecareRes.data.map(o => ({ ...o, type: 'homecare' }));
-            allOrders = [...allOrders, ...homecareOrders];
-            totalHomecare = homecareOrders.length;
-        }
-        
-        totalOrders = allOrders.length;
-        currentOrdersData = allOrders;
-        
-        if (allOrders.length === 0) {
-            showMsg('No orders found in either system', 'info');
-            renderOrdersTable([], 0, 0);
-            return;
-        }
-        
-        renderOrdersTable(allOrders, totalHardware, totalHomecare);
     }
 
     function renderOrdersTable(orders, hardwareCount, homecareCount) {
@@ -1079,7 +1089,6 @@
             return;
         }
         
-        // Fetch orders for the sales rep's type
         setApiUrl(salesRepApiType);
         
         const res = await api('getOrdersSummary', { type: salesRepApiType });
@@ -1095,7 +1104,6 @@
         const ordersWithType = res.data.map(o => ({ ...o, type: salesRepApiType }));
         const unitLabel = salesRepApiType === 'homecare' ? 'Bales' : 'Kgs';
         
-        // Show orders with type badge
         $('leadsTitle').textContent = '📦 My Orders (' + salesRepApiType.toUpperCase() + ')';
         $('btnDownloadTerminatedExcel').classList.add('hidden');
         document.querySelector('.filter-bar').style.display = 'none';
@@ -1121,7 +1129,6 @@
         $('ordersSection').classList.add('hidden');
         $('leadFormSection').classList.add('hidden');
         
-        // Add summary
         let totalQty = 0;
         let totalOrders = 0;
         ordersWithType.forEach(o => {
