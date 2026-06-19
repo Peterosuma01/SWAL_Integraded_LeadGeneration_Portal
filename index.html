@@ -1758,7 +1758,7 @@
         }
     });
 
-    // ========== SALES REP DETAILS (Supervisor View) ==========
+    // ========== SALES REP DETAILS (Supervisor View) - FIXED ==========
     $('salesRepSelect').addEventListener('change', async () => {
         const email = $('salesRepSelect').value;
         if (!email) {
@@ -1767,7 +1767,11 @@
             return;
         }
         
+        // Determine the rep's type based on their email
         const repApiType = getApiTypeForEmail(email);
+        console.log('Loading rep details from:', repApiType);
+        
+        // Switch to the correct API
         setApiUrl(repApiType);
         
         const res = await api('getSalesRepDetails', {
@@ -1789,6 +1793,8 @@
             
             $('repDetailsCard').classList.remove('hidden');
             $('repLeadsTableSection').classList.add('hidden');
+            
+            showMsg('Loaded details for ' + res.data.name + ' (' + repApiType.toUpperCase() + ')', 'success');
         } else {
             showMsg(res.message, 'error');
             $('repDetailsCard').classList.add('hidden');
@@ -1802,6 +1808,7 @@
             return;
         }
         
+        // Use the rep's API type
         const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
         setApiUrl(repApiType);
         
@@ -1853,6 +1860,7 @@
             return;
         }
         
+        // Use the rep's API type
         const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
         setApiUrl(repApiType);
         
@@ -1870,6 +1878,7 @@
         currentRepData.apiType = repApiType;
         currentRepData.email = currentRepData.email || $('salesRepSelect').value;
         
+        // Update stats
         $('repConvertedCount').textContent = res.data.convertedCount || 0;
         $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
         $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
@@ -1931,6 +1940,7 @@
         currentRepData.apiType = repApiType;
         currentRepData.email = currentRepData.email || $('salesRepSelect').value;
         
+        // Update stats
         $('repConvertedCount').textContent = res.data.convertedCount || 0;
         $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
         $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
@@ -1988,6 +1998,7 @@
         currentRepData.apiType = repApiType;
         currentRepData.email = currentRepData.email || $('salesRepSelect').value;
         
+        // Update stats
         $('repConvertedCount').textContent = res.data.convertedCount || 0;
         $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
         $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
@@ -2031,7 +2042,6 @@
             showMsg('No leads to download.', 'error');
             return;
         }
-        const typeLabel = currentRepData.apiType === 'homecare' ? 'Homecare' : 'Hardware';
         const headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
         const data = currentRepData.generatedLeads.map(l => [
             l.customerCode, l.storeName, l.area, l.region, l.location, 
@@ -2047,7 +2057,6 @@
             showMsg('No leads to download.', 'error');
             return;
         }
-        const typeLabel = currentRepData.apiType === 'homecare' ? 'Homecare' : 'Hardware';
         const headers = ['Code', 'Store Name', 'Area', 'Region', 'Location', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
         const data = currentRepData.generatedLeads.map(l => [
             l.customerCode, l.storeName, l.area, l.region, l.location, 
