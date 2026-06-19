@@ -200,18 +200,18 @@
         <select id="salesRepSelect">
           <option value="">-- Select Sales Rep --</option>
           <optgroup label="Hardware Reps">
-            <option value="hardware1.swal@gmail.com">FRANCIS OBALA (Hardware)</option>
-            <option value="hardware2.swal@gmail.com">STEPHEN MUENDO (Hardware)</option>
-            <option value="hardware3.swal@gmail.com">LAVINE KISANYA (Hardware)</option>
-            <option value="hardware4.swal@gmail.com">NGAIRA BRIAN (Hardware)</option>
-            <option value="hardware5.swal@gmail.com">KENNETH MUGAH (Hardware)</option>
-            <option value="hardware6.swal@gmail.com">ANTHONY BUNDI MUGAMBI (Hardware)</option>
-            <option value="eastern.swal@gmail.com">MUSYA KITHEKA (Hardware)</option>
+            <option value="hardware1.swal@gmail.com">FRANCIS OBALA</option>
+            <option value="hardware2.swal@gmail.com">STEPHEN MUENDO</option>
+            <option value="hardware3.swal@gmail.com">LAVINE KISANYA</option>
+            <option value="hardware4.swal@gmail.com">NGAIRA BRIAN</option>
+            <option value="hardware5.swal@gmail.com">KENNETH MUGAH</option>
+            <option value="hardware6.swal@gmail.com">ANTHONY BUNDI MUGAMBI</option>
+            <option value="eastern.swal@gmail.com">MUSYA KITHEKA</option>
           </optgroup>
           <optgroup label="Homecare Reps">
-            <option value="generaltrade.swal@gmail.com">FRANCIS OBALA (Homecare)</option>
-            <option value="generaltrade1.swal@gmail.com">FREDRICK ONYANGO (Homecare)</option>
-            <option value="mountain.swal@gmail.com">JAMES DAVID (Homecare)</option>
+            <option value="generaltrade.swal@gmail.com">FRANCIS OBALA</option>
+            <option value="generaltrade1.swal@gmail.com">FREDRICK ONYANGO</option>
+            <option value="mountain.swal@gmail.com">JAMES DAVID</option>
           </optgroup>
         </select>
       </div>
@@ -1758,7 +1758,7 @@
         }
     });
 
-    // ========== SALES REP DETAILS (Supervisor View) - FIXED ==========
+    // ========== SALES REP DETAILS (Supervisor View) ==========
     $('salesRepSelect').addEventListener('change', async () => {
         const email = $('salesRepSelect').value;
         if (!email) {
@@ -1767,7 +1767,7 @@
             return;
         }
         
-        // Determine the rep's type based on their email
+        // Determine the rep's type based on their email (for API routing)
         const repApiType = getApiTypeForEmail(email);
         console.log('Loading rep details from:', repApiType);
         
@@ -1801,7 +1801,7 @@
         }
     });
 
-    // View All Generated Leads
+    // View All Generated Leads - FIXED to show both Hardware and Homecare leads
     $('btnRepAllLeads').addEventListener('click', async () => {
         if (!currentRepData) {
             showMsg('Select a sales representative first', 'error');
@@ -1831,25 +1831,76 @@
             return;
         }
         
+        // Check if there are any Homecare leads in the mix
+        const hasHomecare = currentRepData.generatedLeads.some(l => l.type === 'homecare');
+        const hasHardware = currentRepData.generatedLeads.some(l => l.type === 'hardware');
+        
+        // Build headers based on what types we have
+        let headers = ['Type', 'Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile'];
+        
+        // Add type-specific columns
+        if (hasHardware) {
+            headers = headers.concat(['Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus']);
+        }
+        if (hasHomecare) {
+            headers = headers.concat(['Selling Steelwool', 'Comments']);
+        }
+        headers = headers.concat(['Qualification', 'Approval', 'Presentation', 'KYC']);
+        
         $('repLeadsTitle').textContent = '📋 All Generated Leads (' + currentRepData.totalLeads + ')';
-        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+        
+        // Build table with correct headers and data
         $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + 
             currentRepData.generatedLeads.map(l => {
                 const isTerminated = l.kycOnboarding === 'Lead Terminated';
+                const typeBadge = l.type === 'homecare' ? 
+                    '<span class="type-badge homecare">🏠 Homecare</span>' : 
+                    '<span class="type-badge hardware">🔩 Hardware</span>';
+                
+                let rowData = [
+                    typeBadge,
+                    l.customerCode || '',
+                    l.storeName || '',
+                    l.area || '',
+                    l.region || '',
+                    l.contactPerson || '',
+                    l.mobileNumber || ''
+                ];
+                
+                // Add Hardware fields if this is a hardware lead
+                if (l.type === 'hardware') {
+                    rowData = rowData.concat([
+                        l.outletCategory || '',
+                        l.brandsStocked || '',
+                        l.purchaseFrequency || '',
+                        l.mainSupplier || '',
+                        l.distributorType || '',
+                        l.weldplusAwareness || ''
+                    ]);
+                }
+                
+                // Add Homecare fields if this is a homecare lead
+                if (l.type === 'homecare') {
+                    rowData = rowData.concat([
+                        l.sellingSwool || '',
+                        l.comments || ''
+                    ]);
+                }
+                
+                // Add common fields
+                rowData = rowData.concat([
+                    l.qualification || '',
+                    l.approval || '',
+                    l.presentation || '',
+                    l.kycOnboarding || ''
+                ]);
+                
                 return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
-                    '<td>' + l.customerCode + '</td>' +
-                    '<td>' + l.storeName + '</td>' +
-                    '<td>' + l.area + '</td>' +
-                    '<td>' + l.region + '</td>' +
-                    '<td>' + l.contactPerson + '</td>' +
-                    '<td>' + l.mobileNumber + '</td>' +
-                    '<td>' + l.qualification + '</td>' +
-                    '<td>' + l.approval + '</td>' +
-                    '<td>' + l.presentation + '</td>' +
-                    '<td>' + (isTerminated ? '<strong>🚫 ' + l.kycOnboarding + '</strong>' : l.kycOnboarding) + '</td>' +
+                    rowData.map(c => '<td>' + (c || '') + '</td>').join('') +
                     '</tr>';
             }).join('') + 
             '</tbody>';
+        
         $('repLeadsTableSection').classList.remove('hidden');
     });
 
