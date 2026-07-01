@@ -288,11 +288,12 @@
         <div id="salesRepLoginMsg" class="meta" style="margin-top:8px;color:#dc2626;display:none"></div>
       </div>
 
-      <div id="actionButtons" class="hidden btn-row" style="margin-bottom:14px">
-        <button class="btn small btn-blue" id="btnViewLeads">📋 My Generated Leads</button>
-        <button class="btn small btn-teal hidden" id="btnPlaceOrder">📝 Place Order</button>
-        <button class="btn small btn-green hidden" id="btnGenerateLead">➕ Generate New Lead</button>
-      </div>
+     <div id="actionButtons" class="hidden btn-row" style="margin-bottom:14px">
+//     <button class="btn small btn-blue hidden" id="btnViewHardwareLeadsRep">🔩 Hardware Leads</button>
+//     <button class="btn small btn-homecare hidden" id="btnViewHomecareLeadsRep">🏠 Homecare Leads</button>
+//     <button class="btn small btn-teal hidden" id="btnPlaceOrder">📝 Place Order</button>
+//     <button class="btn small btn-green hidden" id="btnGenerateLead">➕ Generate New Lead</button>
+//   </div>
 
       <!-- LEAD GENERATION FORM -->
       <div id="leadFormSection" class="hidden">
@@ -536,7 +537,6 @@
     let dashboardData = null;
     let currentRepData = null;
     let currentTerminatedLeads = [];
-    let salesRepApiType = 'hardware';
     
     // Filter state
     let currentFilter = 'all';
@@ -848,7 +848,9 @@
         }
         
         // Sales Rep buttons
-        $('btnViewLeads').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
+        $('btnViewHardwareLeadsRep').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
+        $('btnViewHomecareLeadsRep').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
+      
         $('btnPlaceOrder').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
         $('btnGenerateLead').classList.toggle('hidden', role !== 'SalesRep' || !isSalesRepLoggedIn);
         
@@ -937,71 +939,74 @@
     });
 
     // ========== SALES REP LOGIN ==========
-    $('btnSalesRepLogin').addEventListener('click', async () => {
-        const email = $('salesRepEmail').value.trim();
-        const password = $('salesRepPassword').value.trim();
-        
-        if (!email || !password) {
-            $('salesRepLoginMsg').textContent = 'Please enter email and password';
-            $('salesRepLoginMsg').style.display = 'block';
-            return;
-        }
-        
-        const apiType = getApiTypeForEmail(email);
-        salesRepApiType = apiType;
-        setApiUrl(apiType);
-        
-        const res = await api('validateSalesRepLogin', {
+   $('btnSalesRepLogin').addEventListener('click', async () => {
+    const email    = $('salesRepEmail').value.trim();
+    const password = $('salesRepPassword').value.trim();
+
+    if (!email || !password) {
+        $('salesRepLoginMsg').textContent = 'Please enter email and password';
+        $('salesRepLoginMsg').style.display = 'block';
+        return;
+    }
+
+    // Try hardware API first (both deployments share the same credentials,
+    // so either URL can validate the login — we just need one to confirm).
+    setApiUrl('hardware');
+    const res = await api('validateSalesRepLogin', {
+        salesRepEmail: email,
+        salesRepPassword: password
+    });
+
+    if (res.success) {
+        isSalesRepLoggedIn = true;
+        salesRepName = res.name;
+        $('salesRepLoginMsg').style.display = 'none';
+        $('btnSalesRepLogin').textContent = 'Logged In ✓';
+        $('btnSalesRepLogin').disabled = true;
+        $('btnSalesRepLogin').style.background = '#22c55e';
+        $('salesRepEmail').disabled = true;
+        $('salesRepPassword').disabled = true;
+
+        $('loginBadge').classList.add('show');
+        $('loginBadgeText').textContent = 'Sales Rep: ' + res.name;
+
+        updateUI();
+        showMsg('Welcome, ' + res.name + '!', 'success');
+    } else {
+        // Fallback: try homecare API in case the hardware deployment is down
+        setApiUrl('homecare');
+        const res2 = await api('validateSalesRepLogin', {
             salesRepEmail: email,
             salesRepPassword: password
         });
-        
-        if (res.success) {
+
+        if (res2.success) {
             isSalesRepLoggedIn = true;
-            salesRepName = res.name;
+            salesRepName = res2.name;
             $('salesRepLoginMsg').style.display = 'none';
             $('btnSalesRepLogin').textContent = 'Logged In ✓';
             $('btnSalesRepLogin').disabled = true;
             $('btnSalesRepLogin').style.background = '#22c55e';
             $('salesRepEmail').disabled = true;
             $('salesRepPassword').disabled = true;
-            
+
             $('loginBadge').classList.add('show');
-            $('loginBadgeText').textContent = 'Sales Rep: ' + res.name + ' (' + apiType + ')';
-            
+            $('loginBadgeText').textContent = 'Sales Rep: ' + res2.name;
+
+            // Reset to hardware as default after login
+            setApiUrl('hardware');
+
             updateUI();
-            showMsg('Welcome, ' + res.name + '!', 'success');
+            showMsg('Welcome, ' + res2.name + '!', 'success');
         } else {
-            const otherType = apiType === 'hardware' ? 'homecare' : 'hardware';
-            setApiUrl(otherType);
-            const res2 = await api('validateSalesRepLogin', {
-                salesRepEmail: email,
-                salesRepPassword: password
-            });
-            
-            if (res2.success) {
-                isSalesRepLoggedIn = true;
-                salesRepName = res2.name;
-                salesRepApiType = otherType;
-                $('salesRepLoginMsg').style.display = 'none';
-                $('btnSalesRepLogin').textContent = 'Logged In ✓';
-                $('btnSalesRepLogin').disabled = true;
-                $('btnSalesRepLogin').style.background = '#22c55e';
-                $('salesRepEmail').disabled = true;
-                $('salesRepPassword').disabled = true;
-                
-                $('loginBadge').classList.add('show');
-                $('loginBadgeText').textContent = 'Sales Rep: ' + res2.name + ' (' + otherType + ')';
-                
-                updateUI();
-                showMsg('Welcome, ' + res2.name + '!', 'success');
-            } else {
-                $('salesRepLoginMsg').textContent = res.message || res2.message || 'Invalid credentials';
-                $('salesRepLoginMsg').style.display = 'block';
-                $('salesRepLoginMsg').style.color = '#dc2626';
-            }
+            $('salesRepLoginMsg').textContent = res.message || 'Invalid credentials';
+            $('salesRepLoginMsg').style.display = 'block';
+            $('salesRepLoginMsg').style.color = '#dc2626';
+            // Reset to hardware as default
+            setApiUrl('hardware');
         }
-    });
+    }
+});
 
     // ========== DASHBOARD ==========
     async function loadDashboard() {
@@ -1036,48 +1041,55 @@
     }
 
     // ========== SALES REP VIEW LEADS ==========
-    $('btnViewLeads').addEventListener('click', async () => {
-        if (!isSalesRepLoggedIn) {
-            showMsg('Please login first', 'error');
-            return;
-        }
-        
-        setApiUrl(salesRepApiType);
-        
-        const res = await api('getQualifiedLeadsBySalesRep', {
-            salesRepEmail: $('salesRepEmail').value.trim(),
-            salesRepPassword: $('salesRepPassword').value.trim(),
-            type: salesRepApiType
-        });
-        
-        if (!res.success) {
-            showMsg(res.message, 'error');
-            return;
-        }
-        
-        if (res.data.length === 0) {
-            showMsg('No leads found for this sales representative', 'info');
-            return;
-        }
-        
-        currentLeadData = res.data.map(l => ({ ...l, type: salesRepApiType }));
-        currentFilter = 'all';
-        $('leadsTitle').textContent = '📋 My Generated Leads (' + salesRepApiType.toUpperCase() + ')';
-        $('leadsSection').classList.remove('hidden');
-        $('detailsSection').classList.add('hidden');
-        $('ordersSection').classList.add('hidden');
-        $('leadFormSection').classList.add('hidden');
-        $('btnDownloadTerminatedExcel').classList.add('hidden');
-        
-        document.querySelector('.filter-bar').style.display = 'flex';
-        document.querySelectorAll('.view-type-btn').forEach(btn => {
-            btn.className = 'btn small view-type-btn';
-            if (btn.dataset.filter === 'all') {
-                btn.classList.add('active-all');
-            }
-        });
-        renderFilteredLeads();
+async function viewRepLeadsByType(type) {
+    if (!isSalesRepLoggedIn) {
+        showMsg('Please login first', 'error');
+        return;
+    }
+
+    setApiUrl(type);
+
+    const res = await api('getQualifiedLeadsBySalesRep', {
+        salesRepEmail: $('salesRepEmail').value.trim(),
+        salesRepPassword: $('salesRepPassword').value.trim(),
+        type: type
     });
+
+    // Reset API to hardware as neutral default after the call
+    setApiUrl('hardware');
+
+    if (!res.success) {
+        showMsg(res.message, 'error');
+        return;
+    }
+
+    if (res.data.length === 0) {
+        showMsg('No ' + (type === 'hardware' ? 'Hardware' : 'Homecare') + ' leads found for your account.', 'info');
+        return;
+    }
+
+    currentLeadData = res.data.map(l => ({ ...l, type: type }));
+    currentFilter = 'all';
+
+    const typeLabel = type === 'hardware' ? '🔩 Hardware' : '🏠 Homecare';
+    $('leadsTitle').textContent = typeLabel + ' Leads (' + res.data.length + ')';
+    $('leadsSection').classList.remove('hidden');
+    $('detailsSection').classList.add('hidden');
+    $('ordersSection').classList.add('hidden');
+    $('leadFormSection').classList.add('hidden');
+    $('btnDownloadTerminatedExcel').classList.add('hidden');
+
+    document.querySelector('.filter-bar').style.display = 'flex';
+    document.querySelectorAll('.view-type-btn').forEach(btn => {
+        btn.className = 'btn small view-type-btn';
+        if (btn.dataset.filter === 'all') btn.classList.add('active-all');
+    });
+
+    renderFilteredLeads();
+}
+
+$('btnViewHardwareLeadsRep').addEventListener('click', () => viewRepLeadsByType('hardware'));
+$('btnViewHomecareLeadsRep').addEventListener('click', () => viewRepLeadsByType('homecare'));
 
     // ========== SUPERVISOR VIEW LEADS ==========
     async function loadSupervisorLeads(action, title, showTerminatedDownload = false) {
@@ -2178,7 +2190,6 @@
         if ($('roleSelect').value === 'SalesRep') {
             isSalesRepLoggedIn = false;
             salesRepName = '';
-            salesRepApiType = 'hardware';
             $('salesRepEmail').value = '';
             $('salesRepPassword').value = '';
             $('salesRepEmail').disabled = false;
