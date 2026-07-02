@@ -1781,250 +1781,210 @@ $('btnViewHomecareLeadsRep').addEventListener('click', () => viewRepLeadsByType(
     let currentRepViewType = 'hardware';
     let currentRepViewData = null;
 
-    $('salesRepSelect').addEventListener('change', async () => {
-        const email = $('salesRepSelect').value;
-        if (!email) {
-            $('repDetailsCard').classList.add('hidden');
-            currentRepData = null;
-            return;
-        }
-        
-        const repApiType = getApiTypeForEmail(email);
-        console.log('Loading rep details from:', repApiType);
-        
-        setApiUrl(repApiType);
-        
-        const res = await api('getSalesRepDetails', {
-            salesRepEmail: email,
-            password: $('supervisorPasswordField').value.trim()
-        });
-        
-        if (res.success) {
-            currentRepData = res.data;
-            currentRepData.apiType = repApiType;
-            currentRepData.email = email;
-            
-            // Count hardware and homecare leads
-            const hardwareLeads = currentRepData.generatedLeads.filter(l => l.type === 'hardware');
-            const homecareLeads = currentRepData.generatedLeads.filter(l => l.type === 'homecare');
-            
-            $('repName').textContent = res.data.name;
-            $('repEmail').textContent = res.data.email;
-            $('repTotalLeads').textContent = res.data.totalLeads;
-            $('repHardwareCount').textContent = hardwareLeads.length;
-            $('repHomecareCount').textContent = homecareLeads.length;
-            $('repConvertedCount').textContent = res.data.convertedCount || 0;
-            $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
-            $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
-            
-            $('repDetailsCard').classList.remove('hidden');
-            $('repLeadsTableSection').classList.add('hidden');
-            
-            showMsg('Loaded details for ' + res.data.name, 'success');
-        } else {
-            showMsg(res.message, 'error');
-            $('repDetailsCard').classList.add('hidden');
-        }
+$('salesRepSelect').addEventListener('change', async () => {
+    const email = $('salesRepSelect').value;
+    if (!email) {
+        $('repDetailsCard').classList.add('hidden');
+        currentRepData = null;
+        return;
+    }
+
+    // Fetch from BOTH APIs independently — the rep may have leads
+    // in either or both sheets regardless of their email domain.
+    let hardwareData = null;
+    let homecareData = null;
+
+    setApiUrl('hardware');
+    const hwRes = await api('getSalesRepDetails', {
+        salesRepEmail: email,
+        password: $('supervisorPasswordField').value.trim()
     });
+    if (hwRes.success) hardwareData = hwRes.data;
+
+    setApiUrl('homecare');
+    const hcRes = await api('getSalesRepDetails', {
+        salesRepEmail: email,
+        password: $('supervisorPasswordField').value.trim()
+    });
+    if (hcRes.success) homecareData = hcRes.data;
+
+    // Reset to hardware as neutral default
+    setApiUrl('hardware');
+
+    if (!hardwareData && !homecareData) {
+        showMsg('Could not load rep details. Check supervisor password.', 'error');
+        $('repDetailsCard').classList.add('hidden');
+        return;
+    }
+
+    // Build combined rep data — store each type's leads separately
+    const repName = (hardwareData || homecareData).name;
+    const repEmail = email;
+
+    const hwLeads = hardwareData ? (hardwareData.generatedLeads || []).filter(l => l.type === 'hardware') : [];
+    const hcLeads = homecareData ? (homecareData.generatedLeads || []).filter(l => l.type === 'homecare') : [];
+    const hwConverted = hardwareData ? (hardwareData.hardwareConverted || []) : [];
+    const hcConverted = homecareData ? (homecareData.homecareConverted || []) : [];
+    const allConverted = [...hwConverted, ...hcConverted];
+
+    currentRepData = {
+        name: repName,
+        email: repEmail,
+        hardwareLeads: hwLeads,
+        homecareLeads: hcLeads,
+        hardwareConverted: hwConverted,
+        homecareConverted: hcConverted,
+        convertedLeads: allConverted,
+        convertedCount: allConverted.length
+    };
+
+    // Update stats display
+    $('repName').textContent = repName;
+    $('repEmail').textContent = repEmail;
+    $('repTotalLeads').textContent = hwLeads.length + hcLeads.length;
+    $('repHardwareCount').textContent = hwLeads.length;
+    $('repHomecareCount').textContent = hcLeads.length;
+    $('repConvertedCount').textContent = allConverted.length;
+    $('repHardwareConverted').textContent = hwConverted.length;
+    $('repHomecareConverted').textContent = hcConverted.length;
+
+    $('repDetailsCard').classList.remove('hidden');
+    $('repLeadsTableSection').classList.add('hidden');
+
+    showMsg('Loaded details for ' + repName, 'success');
+});
 
     // View Hardware Leads
-    $('btnViewHardwareLeads').addEventListener('click', async () => {
-        if (!currentRepData) {
-            showMsg('Select a sales representative first', 'error');
-            return;
-        }
-        
-        currentRepViewType = 'hardware';
-        
-        const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
-        setApiUrl(repApiType);
-        
-        const res = await api('getSalesRepDetails', {
-            salesRepEmail: currentRepData.email,
-            password: $('supervisorPasswordField').value.trim()
-        });
-        
-        if (!res.success) {
-            showMsg(res.message, 'error');
-            return;
-        }
-        
-        currentRepData = res.data;
-        currentRepData.apiType = repApiType;
-        currentRepData.email = currentRepData.email || $('salesRepSelect').value;
-        
-        const hardwareLeads = currentRepData.generatedLeads.filter(l => l.type === 'hardware');
-        
-        if (hardwareLeads.length === 0) {
-            showMsg('No Hardware leads found for this rep', 'info');
-            return;
-        }
-        
-        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-        const rows = hardwareLeads.map(l => {
-            const isTerminated = l.kycOnboarding === 'Lead Terminated';
-            const rowData = [
-                l.customerCode || '',
-                l.storeName || '',
-                l.area || '',
-                l.region || '',
-                l.contactPerson || '',
-                l.mobileNumber || '',
-                l.outletCategory || '',
-                l.brandsStocked || '',
-                l.purchaseFrequency || '',
-                l.mainSupplier || '',
-                l.distributorType || '',
-                l.weldplusAwareness || '',
-                l.qualification || '',
-                l.approval || '',
-                l.presentation || '',
-                l.kycOnboarding || ''
-            ];
-            return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
-                rowData.map(c => '<td>' + (c || '') + '</td>').join('') +
-                '</tr>';
-        });
-        
-        $('repLeadsTitle').textContent = '🔩 Hardware Leads (' + hardwareLeads.length + ')';
-        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody>';
-        $('repLeadsTableSection').classList.remove('hidden');
-        
-        currentRepViewData = { headers, rows: hardwareLeads, type: 'hardware' };
+    $('btnViewHardwareLeads').addEventListener('click', () => {
+    if (!currentRepData) {
+        showMsg('Select a sales representative first', 'error');
+        return;
+    }
+
+    const hwLeads = currentRepData.hardwareLeads || [];
+
+    if (hwLeads.length === 0) {
+        showMsg('No Hardware leads found for this rep', 'info');
+        return;
+    }
+
+    const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile',
+        'Category', 'Brands', 'Freq', 'Supplier', 'Dist Type', 'Weldplus',
+        'Qualification', 'Approval', 'Presentation', 'KYC'];
+
+    const rows = hwLeads.map(l => {
+        const isTerminated = l.kycOnboarding === 'Lead Terminated';
+        const rowData = [
+            l.customerCode || '', l.storeName || '', l.area || '', l.region || '',
+            l.contactPerson || '', l.mobileNumber || '', l.outletCategory || '',
+            l.brandsStocked || '', l.purchaseFrequency || '', l.mainSupplier || '',
+            l.distributorType || '', l.weldplusAwareness || '', l.qualification || '',
+            l.approval || '', l.presentation || '', l.kycOnboarding || ''
+        ];
+        return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
+            rowData.map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>';
     });
 
-    // View Homecare Leads
-    $('btnViewHomecareLeads').addEventListener('click', async () => {
-        if (!currentRepData) {
-            showMsg('Select a sales representative first', 'error');
-            return;
-        }
-        
-        currentRepViewType = 'homecare';
-        
-        const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
-        setApiUrl(repApiType);
-        
-        const res = await api('getSalesRepDetails', {
-            salesRepEmail: currentRepData.email,
-            password: $('supervisorPasswordField').value.trim()
-        });
-        
-        if (!res.success) {
-            showMsg(res.message, 'error');
-            return;
-        }
-        
-        currentRepData = res.data;
-        currentRepData.apiType = repApiType;
-        currentRepData.email = currentRepData.email || $('salesRepSelect').value;
-        
-        const homecareLeads = currentRepData.generatedLeads.filter(l => l.type === 'homecare');
-        
-        if (homecareLeads.length === 0) {
-            showMsg('No Homecare leads found for this rep', 'info');
-            return;
-        }
-        
-        const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile', 'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume', 'Comments', 'Qualification', 'Approval', 'Presentation', 'KYC'];
-        const rows = homecareLeads.map(l => {
-            const isTerminated = l.kycOnboarding === 'Lead Terminated';
-            const rowData = [
-                l.customerCode || '',
-                l.storeName || '',
-                l.area || '',
-                l.region || '',
-                l.contactPerson || '',
-                l.mobileNumber || '',
-                l.sellingSwool || '',
-                l.sokoniSource || '',
-                l.otherBrands || '',
-                l.monthlyVolume || '',
-                l.comments || '',
-                l.qualification || '',
-                l.approval || '',
-                l.presentation || '',
-                l.kycOnboarding || ''
-            ];
-            return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
-                rowData.map(c => '<td>' + (c || '') + '</td>').join('') +
-                '</tr>';
-        });
-        
-        $('repLeadsTitle').textContent = '🏠 Homecare Leads (' + homecareLeads.length + ')';
-        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody>';
-        $('repLeadsTableSection').classList.remove('hidden');
-        
-        currentRepViewData = { headers, rows: homecareLeads, type: 'homecare' };
+    $('repLeadsTitle').textContent = '🔩 Hardware Leads (' + hwLeads.length + ')';
+    $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') +
+        '</tr></thead><tbody>' + rows.join('') + '</tbody>';
+    $('repLeadsTableSection').classList.remove('hidden');
+
+    currentRepViewData = { headers, rows: hwLeads, type: 'hardware' };
+    currentRepViewType = 'hardware';
+});
+
+        // View Homecare Leads
+   $('btnViewHomecareLeads').addEventListener('click', () => {
+    if (!currentRepData) {
+        showMsg('Select a sales representative first', 'error');
+        return;
+    }
+
+    const hcLeads = currentRepData.homecareLeads || [];
+
+    if (hcLeads.length === 0) {
+        showMsg('No Homecare leads found for this rep', 'info');
+        return;
+    }
+
+    const headers = ['Code', 'Store Name', 'Area', 'Region', 'Contact', 'Mobile',
+        'Selling Steelwool', 'Sokoni Source', 'Other Brands', 'Monthly Volume',
+        'Comments', 'Qualification', 'Approval', 'Presentation', 'KYC'];
+
+    const rows = hcLeads.map(l => {
+        const isTerminated = l.kycOnboarding === 'Lead Terminated';
+        const rowData = [
+            l.customerCode || '', l.storeName || '', l.area || '', l.region || '',
+            l.contactPerson || '', l.mobileNumber || '', l.sellingSwool || '',
+            l.sokoniSource || '', l.otherBrands || '', l.monthlyVolume || '',
+            l.comments || '', l.qualification || '', l.approval || '',
+            l.presentation || '', l.kycOnboarding || ''
+        ];
+        return '<tr style="' + (isTerminated ? 'background:#fff1f2;color:#9f1239' : '') + '">' +
+            rowData.map(c => '<td>' + (c || '') + '</td>').join('') + '</tr>';
     });
+
+    $('repLeadsTitle').textContent = '🏠 Homecare Leads (' + hcLeads.length + ')';
+    $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') +
+        '</tr></thead><tbody>' + rows.join('') + '</tbody>';
+    $('repLeadsTableSection').classList.remove('hidden');
+
+    currentRepViewData = { headers, rows: hcLeads, type: 'homecare' };
+    currentRepViewType = 'homecare';
+});
 
     // View Orders Placed (Converted Leads)
-    $('btnViewConvertedLeads').addEventListener('click', async () => {
-        if (!currentRepData) {
-            showMsg('Select a sales representative first', 'error');
-            return;
-        }
-        
-        currentRepViewType = 'converted';
-        
-        const repApiType = currentRepData.apiType || getApiTypeForEmail(currentRepData.email);
-        setApiUrl(repApiType);
-        
-        const res = await api('getSalesRepDetails', {
-            salesRepEmail: currentRepData.email,
-            password: $('supervisorPasswordField').value.trim()
-        });
-        
-        if (!res.success) {
-            showMsg(res.message, 'error');
-            return;
-        }
-        
-        currentRepData = res.data;
-        currentRepData.apiType = repApiType;
-        currentRepData.email = currentRepData.email || $('salesRepSelect').value;
-        
-        // Update stats
-        $('repConvertedCount').textContent = res.data.convertedCount || 0;
-        $('repHardwareConverted').textContent = res.data.hardwareConverted ? res.data.hardwareConverted.length : 0;
-        $('repHomecareConverted').textContent = res.data.homecareConverted ? res.data.homecareConverted.length : 0;
-        
-        const allConverted = res.data.convertedLeads || [];
-        
-        if (allConverted.length === 0) {
-            showMsg('No converted leads for this rep', 'info');
-            return;
-        }
-        
-        // Show all converted with type badges
-        const headers = ['Type', 'Code', 'Store Name', 'Area', 'Order 1', 'Order 2', 'Order 3', 'Total', 'Milestone'];
-        const rows = allConverted.map(l => {
-            const unitLabel = l.type === 'homecare' ? 'Bales' : 'Kgs';
-            const typeBadge = l.type === 'homecare' ? 
-                '<span class="type-badge homecare">🏠 Homecare</span>' : 
-                '<span class="type-badge hardware">🔩 Hardware</span>';
-            let bc = 'milestone-1';
-            if (l.completedOrders === 3) bc = 'milestone-3';
-            else if (l.completedOrders === 2) bc = 'milestone-2';
-            return '<tr>' +
-                '<td>' + typeBadge + '</td>' +
-                '<td>' + l.customerCode + '</td>' +
-                '<td>' + l.storeName + '</td>' +
-                '<td>' + l.area + '</td>' +
-                '<td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) + ' ' + unitLabel : '-') + '</td>' +
-                '<td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) + ' ' + unitLabel : '-') + '</td>' +
-                '<td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) + ' ' + unitLabel : '-') + '</td>' +
-                '<td>' + l.totalQty.toFixed(2) + ' ' + unitLabel + '</td>' +
-                '<td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td>' +
-                '</tr>';
-        });
-        
-        $('repLeadsTitle').textContent = '📦 Orders Placed (' + allConverted.length + ')';
-        $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody>';
-        $('repLeadsTableSection').classList.remove('hidden');
-        
-        currentRepViewData = { headers, rows: allConverted, type: 'converted' };
+   $('btnViewConvertedLeads').addEventListener('click', () => {
+    if (!currentRepData) {
+        showMsg('Select a sales representative first', 'error');
+        return;
+    }
+
+    const allConverted = currentRepData.convertedLeads || [];
+
+    // Update stats
+    $('repConvertedCount').textContent = allConverted.length;
+    $('repHardwareConverted').textContent = (currentRepData.hardwareConverted || []).length;
+    $('repHomecareConverted').textContent = (currentRepData.homecareConverted || []).length;
+
+    if (allConverted.length === 0) {
+        showMsg('No converted leads for this rep', 'info');
+        return;
+    }
+
+    const headers = ['Type', 'Code', 'Store Name', 'Area',
+        'Order 1', 'Order 2', 'Order 3', 'Total', 'Milestone'];
+
+    const rows = allConverted.map(l => {
+        const unitLabel = l.type === 'homecare' ? 'Bales' : 'Kgs';
+        const typeBadge = l.type === 'homecare'
+            ? '<span class="type-badge homecare">🏠 Homecare</span>'
+            : '<span class="type-badge hardware">🔩 Hardware</span>';
+        let bc = 'milestone-1';
+        if (l.completedOrders === 3) bc = 'milestone-3';
+        else if (l.completedOrders === 2) bc = 'milestone-2';
+        return '<tr>' +
+            '<td>' + typeBadge + '</td>' +
+            '<td>' + l.customerCode + '</td>' +
+            '<td>' + l.storeName + '</td>' +
+            '<td>' + l.area + '</td>' +
+            '<td>' + (l.order1Qty > 0 ? l.order1Qty.toFixed(2) + ' ' + unitLabel : '-') + '</td>' +
+            '<td>' + (l.order2Qty > 0 ? l.order2Qty.toFixed(2) + ' ' + unitLabel : '-') + '</td>' +
+            '<td>' + (l.order3Qty > 0 ? l.order3Qty.toFixed(2) + ' ' + unitLabel : '-') + '</td>' +
+            '<td>' + l.totalQty.toFixed(2) + ' ' + unitLabel + '</td>' +
+            '<td><span class="milestone-badge ' + bc + '">' + l.milestone + '</span></td>' +
+            '</tr>';
     });
+
+    $('repLeadsTitle').textContent = '📦 Orders Placed (' + allConverted.length + ')';
+    $('repLeadsTable').innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') +
+        '</tr></thead><tbody>' + rows.join('') + '</tbody>';
+    $('repLeadsTableSection').classList.remove('hidden');
+
+    currentRepViewData = { headers, rows: allConverted, type: 'converted' };
+    currentRepViewType = 'converted';
+});
 
     $('btnCloseRepLeads').addEventListener('click', () => {
         $('repLeadsTableSection').classList.add('hidden');
