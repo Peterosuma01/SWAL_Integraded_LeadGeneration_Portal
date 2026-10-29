@@ -2,17 +2,16 @@
 // INTEGRATED SERVICE WORKER - Hardware & Homecare
 // ============================================================
 
-const CACHE_NAME = 'steelwool-integrated-v1';
-const OFFLINE_URL = '/offline.html';
+const CACHE_NAME = 'steelwool-integrated-v2';   // bumped so old caches get cleared
+const OFFLINE_URL = './offline.html';
 
-// Files to cache immediately on install
 const PRECACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/offline.html',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  './',
+  './index.html',
+  './manifest.json',
+  './offline.html',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 // Additional static assets that should be cached
@@ -225,8 +224,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'New Lead Update';
   const options = {
     body: data.body || 'A new lead has been generated or updated.',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+   icon: './icons/icon-192.png',
+   badge: './icons/icon-192.png',
     vibrate: [200, 100, 200],
     data: {
       url: data.url || './'
