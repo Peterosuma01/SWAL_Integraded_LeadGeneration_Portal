@@ -2193,17 +2193,11 @@ $('salesRepSelect').addEventListener('change', async () => {
     window.setLeadFilter = setLeadFilter;
     
     if ('serviceWorker' in navigator) {
-        const swUrl = window.location.pathname.includes('/SWAL-Integrated-LeadGeneration/') 
-            ? 'service-worker.js' 
-            : '/service-worker.js';
-        
-        navigator.serviceWorker.register(swUrl)
-            .then(registration => {
-                console.log('Service Worker registered successfully:', registration);
-            })
-            .catch(error => {
-                console.log('Service Worker registration failed:', error);
-            });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(reg => console.log('SW registered, scope:', reg.scope))
+          .catch(err => console.warn('SW registration failed:', err));
+      });
     }
   </script>
 </body>
